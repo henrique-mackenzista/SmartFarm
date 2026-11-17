@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "author": "SmartFarm",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-relay-module", "id": "relay1", "top": -38.2, "left": 182.4, "attrs": {} },
+    { "type": "wokwi-led", "id": "led1", "top": 102, "left": 205.4, "attrs": { "color": "blue" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": 167.15, "left": 134.4, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "relay1:VCC", "esp:5V", "red", [ "v0" ] ],
+    [ "relay1:GND", "esp:GND.2", "black", [ "v0" ] ],
+    [ "relay1:IN", "esp:26", "green", [ "v0" ] ],
+    [ "esp:27", "r1:1", "orange", [ "v0" ] ],
+    [ "r1:2", "led1:A", "orange", [ "v0" ] ],
+    [ "led1:C", "esp:GND.3", "black", [ "v0" ] ]
+  ],
+  "dependencies": {}
+}

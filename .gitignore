@@ -1,0 +1,20 @@
+# Segredos
+.env
+*.pem
+*.key
+
+# Credenciais e dados locais do Node-RED
+flows_cred.json
+.node-red/
+node_modules/
+
+# O enunciado proíbe arquivos compactados no repositório
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# Sistema
+.DS_Store
+Thumbs.db
