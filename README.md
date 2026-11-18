@@ -33,27 +33,27 @@ O SmartFarm decide **quando irrigar com base na condição real do solo**:
 
 ```mermaid
 flowchart LR
-    A["Dispositivo A<br/>ESP32 + DHT22,<br/>potenciômetro, HC-SR04"] -- "smartfarm/dispA/telemetria" --> B(("Broker MQTT<br/>Mosquitto"))
-    B -- "smartfarm/dispA/telemetria<br/>smartfarm/dispB/status" --> N["Node-RED<br/>regras de negócio"]
-    N -- "smartfarm/dispB/comando" --> B
-    B -- "smartfarm/dispB/comando" --> D["Dispositivo B<br/>ESP32 + relé (bomba)"]
-    D -- "smartfarm/dispB/status" --> B
+    A["Dispositivo A<br/>ESP32 + DHT22,<br/>potenciômetro, HC-SR04"] -- "telemetria" --> B(("Broker MQTT<br/>HiveMQ público"))
+    B -- "telemetria<br/>status da bomba" --> N["Node-RED<br/>regras de negócio"]
+    N -- "comando" --> B
+    B -- "comando" --> D["Dispositivo B<br/>ESP32 + relé (bomba)"]
+    D -- "status da bomba" --> B
     N <-- "HTTPS" --> W["OpenWeather<br/>clima e previsão"]
     N <-- "HTTPS" --> T["Telegram Bot API<br/>alertas e menu de consulta"]
     N -- "HTTP + token" --> I[("InfluxDB")]
     I --> G["Grafana<br/>dashboards"]
 ```
 
+Todos os tópicos começam com `mack10308763/smartfarm/` ([detalhes](docs/topicos-mqtt.md)).
+
 | Bloco | Tecnologia | Onde roda |
 |---|---|---|
 | Dispositivos | 2 × ESP32 simulados no Wokwi | Wokwi (rede Wokwi-GUEST) |
-| Broker MQTT | Eclipse Mosquitto, porta 1883 | Instância EC2 (AWS Academy) com IP elástico |
-| Regras de negócio | Node-RED, porta 1880 | Outra instância EC2 |
-| Banco de dados | InfluxDB (séries temporais) | Máquina separada (ver [docs/arquitetura.md](docs/arquitetura.md)) |
-| Dashboards | Grafana | Máquina separada (ver [docs/arquitetura.md](docs/arquitetura.md)) |
-| APIs externas | OpenWeather, Telegram Bot API | Serviços de terceiros |
-
-Broker, Node-RED, banco de dados e Grafana ficam em máquinas virtuais distintas, conforme exigido pelo enunciado do projeto.
+| Broker MQTT | HiveMQ público, porta 1883 | `broker.hivemq.com` |
+| Regras de negócio | Node-RED | computador da equipe |
+| Banco de dados | InfluxDB (séries temporais) | a definir ([docs/arquitetura.md](docs/arquitetura.md)) |
+| Dashboards | Grafana | a definir ([docs/arquitetura.md](docs/arquitetura.md)) |
+| APIs externas | OpenWeather, Telegram Bot API | serviços de terceiros |
 
 ## Estrutura do repositório
 
@@ -61,12 +61,12 @@ Broker, Node-RED, banco de dados e Grafana ficam em máquinas virtuais distintas
 smartfarm/
 ├── README.md                      ← você está aqui
 ├── docs/
-│   ├── arquitetura.md             máquinas, portas, FQDN/IP e regras de firewall
+│   ├── arquitetura.md             onde roda cada serviço e fluxo dos dados
 │   ├── topicos-mqtt.md            tópicos e formato das mensagens JSON
 │   ├── regras-de-negocio.md       regras R1 a R7 e como validá-las
 │   ├── banco-de-dados.md          o que é gravado no InfluxDB
 │   ├── dashboards.md              dashboards e painéis do Grafana
-│   ├── bot-telegram.md            comandos do bot, segurança e código do Node-RED
+│   ├── bot-telegram.md            comandos do bot, segurança e configuração
 │   ├── SmartFarm-Artigo-N1.docx   artigo do projeto (primeira entrega, corrigida)
 │   ├── SmartFarm-Artigo-N1.pdf    o mesmo artigo em PDF, para leitura no navegador
 │   └── img/                       diagramas e capturas de tela
@@ -75,15 +75,12 @@ smartfarm/
 │   ├── dispositivo-a-sensores/    sketch.ino, diagram.json e libraries.txt (Wokwi)
 │   └── dispositivo-b-atuador/     sketch.ino, diagram.json e libraries.txt (Wokwi)
 ├── node-red/
-│   ├── flows.json                 fluxo exportado do Node-RED, sem credenciais (a adicionar)
-│   └── README.md                  paletas necessárias e como importar
+│   ├── flows.json                 fluxo completo do Node-RED, sem credenciais
+│   └── README.md                  instalação local, configuração e importação
 ├── grafana/
 │   ├── dashboard-monitoramento.json        (a adicionar)
 │   ├── dashboard-historico-alertas.json    (a adicionar)
 │   └── README.md                  como importar e configurar a fonte de dados
-├── infraestrutura/
-│   ├── README.md                  instalação do broker e do Node-RED nas EC2
-│   └── mosquitto/mosquitto.conf   configuração do broker
 ├── .env.example                   variáveis secretas necessárias (sem valores reais)
 ├── .gitignore
 └── LICENSE
@@ -93,17 +90,16 @@ Os arquivos marcados como "a adicionar" entram no repositório à medida que o p
 
 ## Como reproduzir o projeto
 
-1. **Broker MQTT** — numa instância EC2 (Ubuntu), instale o Mosquitto seguindo [`infraestrutura/README.md`](infraestrutura/README.md) e associe um IP elástico. Libere a porta 1883 no security group (detalhes em [docs/arquitetura.md](docs/arquitetura.md)).
-2. **Dispositivos** — crie dois projetos ESP32 no Wokwi e copie para cada um os arquivos `sketch.ino`, `diagram.json` e `libraries.txt` da pasta correspondente em [`dispositivos/`](dispositivos/). No topo de cada `sketch.ino`, troque `SEU_IP_ELASTICO` pelo IP elástico do broker. As ligações e adaptações estão em [`dispositivos/README.md`](dispositivos/README.md).
-3. **Banco de dados** — crie um bucket `smartfarm` no InfluxDB e um token com permissão de escrita e leitura.
-4. **Node-RED** — em outra instância EC2, instale o Node-RED e as paletas listadas em [`node-red/README.md`](node-red/README.md), importe `node-red/flows.json` e preencha as credenciais a partir de [`.env.example`](.env.example).
+1. **Dispositivos** — crie dois projetos ESP32 no Wokwi e copie para cada um os arquivos `sketch.ino`, `diagram.json` e `libraries.txt` da pasta correspondente em [`dispositivos/`](dispositivos/). Eles já usam o broker `broker.hivemq.com`. As ligações e adaptações estão em [`dispositivos/README.md`](dispositivos/README.md).
+2. **Banco de dados** — crie um bucket `smartfarm` no InfluxDB e um token com permissão de escrita e leitura.
+3. **Bot do Telegram** — crie o bot no @BotFather conforme [docs/bot-telegram.md](docs/bot-telegram.md).
+4. **Node-RED** — instale o Node-RED no computador, configure as chaves no `settings.js` e importe [`node-red/flows.json`](node-red/flows.json), seguindo [`node-red/README.md`](node-red/README.md).
 5. **Grafana** — adicione o InfluxDB como fonte de dados e importe os dois arquivos JSON de [`grafana/`](grafana/).
-6. **Bot do Telegram** — crie o bot no @BotFather e configure-o no Node-RED conforme [docs/bot-telegram.md](docs/bot-telegram.md).
-7. **Teste** — inicie as duas simulações no Wokwi e gire o potenciômetro abaixo de 30%: o Node-RED deve publicar o comando de ligar, o relé do Dispositivo B deve acionar e o acionamento deve aparecer no dashboard. Os demais testes estão em [docs/regras-de-negocio.md](docs/regras-de-negocio.md).
+6. **Teste** — inicie as duas simulações no Wokwi e gire o potenciômetro abaixo de 30%: o Node-RED deve publicar o comando de ligar, o relé do Dispositivo B deve acionar e o acionamento deve aparecer no dashboard. Os demais testes estão em [docs/regras-de-negocio.md](docs/regras-de-negocio.md).
 
 ## Dados sensíveis
 
-Chaves de API, tokens, IDs de chat e números de telefone **não** são publicados neste repositório. O fluxo do Node-RED é exportado sem credenciais, e os valores necessários estão listados, sem conteúdo real, em [`.env.example`](.env.example).
+Chaves de API, tokens, IDs de chat e números de telefone **não** são publicados neste repositório. As chaves ficam só no `settings.js` do Node-RED de quem roda o projeto, o token do InfluxDB fica nas credenciais do Node-RED (que não são exportadas), e os valores necessários estão listados, sem conteúdo real, em [`.env.example`](.env.example).
 
 ## Referências
 

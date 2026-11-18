@@ -4,8 +4,10 @@ O projeto usa dois ESP32 simulados no [Wokwi](https://wokwi.com). Conforme o enu
 
 | Dispositivo | Componentes | Publica | Assina |
 |---|---|---|---|
-| [A – Sensores](dispositivo-a-sensores/) | DHT22, potenciômetro, HC-SR04 | `smartfarm/dispA/telemetria` | — |
-| [B – Atuador](dispositivo-b-atuador/) | relé (bomba) e LED | `smartfarm/dispB/status` | `smartfarm/dispB/comando` |
+| [A – Sensores](dispositivo-a-sensores/) | DHT22, potenciômetro, HC-SR04 | `.../dispA/telemetria` | — |
+| [B – Atuador](dispositivo-b-atuador/) | relé (bomba) e LED | `.../dispB/status` | `.../dispB/comando` |
+
+Os tópicos completos começam com `mack10308763/smartfarm/` ([detalhes](../docs/topicos-mqtt.md)).
 
 ## Ligações
 
@@ -35,5 +37,5 @@ O projeto usa dois ESP32 simulados no [Wokwi](https://wokwi.com). Conforme o enu
 1. Crie um projeto novo com a placa **ESP32**.
 2. Substitua o conteúdo de `sketch.ino` e `diagram.json` pelos arquivos da pasta do dispositivo.
 3. Crie o arquivo `libraries.txt` com o conteúdo do arquivo da pasta (o Wokwi instala as bibliotecas sozinho).
-4. No topo do `sketch.ino`, troque `SEU_IP_ELASTICO` pelo IP do broker MQTT.
-5. Inicie a simulação e acompanhe as mensagens no monitor serial.
+4. Inicie a simulação e acompanhe as mensagens no monitor serial. O broker (`broker.hivemq.com`) e os tópicos já estão configurados no topo do `sketch.ino`.
+5. Para ver as mensagens fora do Wokwi, use o MQTT Explorer ([docs/topicos-mqtt.md](../docs/topicos-mqtt.md)).

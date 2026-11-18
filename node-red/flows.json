@@ -1,0 +1,856 @@
+[
+    {
+        "id": "sf_tab_regras",
+        "type": "tab",
+        "label": "1. Dispositivos e regras",
+        "disabled": false,
+        "info": "Recebe a telemetria do Dispositivo A e o status do Dispositivo B, aplica as regras R1 a R7 e publica os comandos da bomba."
+    },
+    {
+        "id": "sf_tab_apis",
+        "type": "tab",
+        "label": "2. OpenWeather",
+        "disabled": false,
+        "info": "Consulta o clima atual e a previsão de chuva a cada 5 minutos."
+    },
+    {
+        "id": "sf_tab_telegram",
+        "type": "tab",
+        "label": "3. Telegram",
+        "disabled": false,
+        "info": "Envia os alertas e responde aos comandos do bot (menu de consulta)."
+    },
+    {
+        "id": "sf_tab_influx",
+        "type": "tab",
+        "label": "4. InfluxDB",
+        "disabled": false,
+        "info": "Grava no InfluxDB todos os registros gerados pelas outras abas."
+    },
+    {
+        "id": "sf_cfg_broker",
+        "type": "mqtt-broker",
+        "name": "HiveMQ público",
+        "broker": "broker.hivemq.com",
+        "port": "1883",
+        "clientid": "mack10308763-nodered",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "sf_cfg_influx",
+        "type": "influxdb",
+        "hostname": "127.0.0.1",
+        "port": "8086",
+        "protocol": "http",
+        "database": "database",
+        "name": "InfluxDB SmartFarm",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://localhost:8086",
+        "timeout": "10",
+        "rejectUnauthorized": true
+    },
+    {
+        "id": "sf_c_sf_tab_regras_40",
+        "type": "comment",
+        "z": "sf_tab_regras",
+        "name": "Dispositivos e regras de negócio (R1 a R7)",
+        "info": "Tópicos MQTT e regras: veja docs/topicos-mqtt.md e docs/regras-de-negocio.md no repositório.",
+        "x": 220,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "sf_a_init",
+        "type": "inject",
+        "z": "sf_tab_regras",
+        "name": "Ao iniciar",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 100,
+        "wires": [
+            [
+                "sf_a_params"
+            ]
+        ]
+    },
+    {
+        "id": "sf_a_params",
+        "type": "function",
+        "z": "sf_tab_regras",
+        "name": "Parâmetros e estado inicial",
+        "func": "// Parâmetros das regras de negócio (docs/regras-de-negocio.md).\n// Para testes, é possível sobrescrever valores com a variável de ambiente\n// SMARTFARM_PARAMETROS, em JSON. Ex.: {\"tempoMaxIrrigacaoMin\": 1}\nconst padrao = {\n    umidadeMin: 30,             // % - abaixo disso, irrigar (R1)\n    umidadeAlvo: 60,            // % - ao atingir, desligar (R1)\n    nivelCritico: 20,           // % - abaixo disso, bloquear a bomba (R3)\n    nivelLibera: 25,            // % - acima disso, liberar o bloqueio (R3)\n    chuvaLimite: 60,            // % - probabilidade que adia a irrigação (R2)\n    tempoMaxIrrigacaoMin: 15,   // min - tempo máximo com a bomba ligada (R4)\n    pausaAposTempoMaxMin: 60,   // min - pausa da irrigação automática após R4\n    semTelemetriaS: 60,         // s - sem telemetria por mais que isso = falha (R5)\n    difTempMaxC: 5,             // °C - diferença sensor x API considerada suspeita (R6)\n    difTempMinutos: 30,         // min - tempo de diferença até alertar (R6)\n    intervaloAlertaMin: 30,     // min - intervalo mínimo entre alertas do mesmo tipo\n    vazaoLpm: 2,                // L/min - vazão nominal da bomba (R7)\n    reservatorioL: 200,         // L - capacidade do reservatório\n    rotinaFixaLDia: 60          // L/dia - consumo de uma rotina fixa (2 x 15 min)\n};\nlet extra = {};\nconst textoExtra = env.get(\"SMARTFARM_PARAMETROS\");\nif (textoExtra) {\n    try { extra = JSON.parse(textoExtra); }\n    catch (e) { node.warn(\"SMARTFARM_PARAMETROS inválido, usando os valores padrão.\"); }\n}\nglobal.set(\"params\", Object.assign({}, padrao, extra));\n\nif (!global.get(\"inicioSistema\")) global.set(\"inicioSistema\", Date.now());\nglobal.set(\"fluxoIniciadoEm\", Date.now());\nif (!global.get(\"irrigacoes\")) global.set(\"irrigacoes\", []);\nif (!global.get(\"adiamentos\")) global.set(\"adiamentos\", []);\n\n// Estado da bomba: o valor real vem do Dispositivo B (mensagem retida de status).\nconst b = global.get(\"bomba\") || {};\nglobal.set(\"bomba\", { estado: b.estado || 0, inicioTs: b.inicioTs || null, bloqueio: null,\n                      reservatorioBloqueado: false, pausaAte: b.pausaAte || null });\nnode.status({ fill: \"green\", shape: \"dot\", text: \"parâmetros carregados\" });\nreturn null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "sf_a_mqtt_tel",
+        "type": "mqtt in",
+        "z": "sf_tab_regras",
+        "name": "Telemetria (Disp. A)",
+        "topic": "mack10308763/smartfarm/dispA/telemetria",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "sf_cfg_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 180,
+        "wires": [
+            [
+                "sf_a_tel"
+            ]
+        ]
+    },
+    {
+        "id": "sf_a_tel",
+        "type": "function",
+        "z": "sf_tab_regras",
+        "name": "Recebe telemetria",
+        "func": "// Valida a telemetria do Dispositivo A, guarda os valores mais recentes\n// e dispara a gravação no InfluxDB e a avaliação das regras.\nconst d = msg.payload;\nconst campos = [\"umidade_solo\", \"temperatura\", \"umidade_ar\", \"nivel\"];\nif (typeof d !== \"object\" || d === null || campos.some(k => typeof d[k] !== \"number\" || isNaN(d[k]))) {\n    node.warn(\"Telemetria inválida ignorada: \" + JSON.stringify(d));\n    return null;\n}\nconst t = { ts: Date.now() };\ncampos.forEach(k => t[k] = d[k]);\nglobal.set(\"telemetria\", t);\nnode.status({ fill: \"green\", shape: \"dot\", text: `solo ${t.umidade_solo}% · nível ${t.nivel}%` });\n\nconst gravar = {\n    measurement: \"telemetria\",\n    payload: [\n        { umidade_solo: t.umidade_solo, temperatura: t.temperatura, umidade_ar: t.umidade_ar, nivel: t.nivel },\n        { dispositivo: \"dispA\" }\n    ]\n};\nreturn [gravar, { topic: \"telemetria\" }];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 180,
+        "wires": [
+            [
+                "sf_lo_a_influx"
+            ],
+            [
+                "sf_a_regras",
+                "sf_a_r6"
+            ]
+        ]
+    },
+    {
+        "id": "sf_a_watch",
+        "type": "inject",
+        "z": "sf_tab_regras",
+        "name": "A cada 10 s",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "10",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 2,
+        "topic": "verificacao",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 260,
+        "wires": [
+            [
+                "sf_a_regras"
+            ]
+        ]
+    },
+    {
+        "id": "sf_li_regras",
+        "type": "link in",
+        "z": "sf_tab_regras",
+        "name": "Nova previsão do tempo",
+        "links": [
+            "sf_lo_b_regras"
+        ],
+        "x": 145,
+        "y": 300,
+        "wires": [
+            [
+                "sf_a_regras"
+            ]
+        ]
+    },
+    {
+        "id": "sf_a_regras",
+        "type": "function",
+        "z": "sf_tab_regras",
+        "name": "Regras R1 a R5",
+        "func": "// Regras R1 a R5. Executa a cada telemetria, a cada 10 s e a cada nova previsão do tempo.\n// Prioridade: falha de comunicação (R5) > reservatório (R3) > tempo máximo (R4) > chuva (R2) > demanda (R1).\nconst p = global.get(\"params\");\nif (!p) return null;\nconst t = global.get(\"telemetria\");\nconst c = global.get(\"clima\") || {};\nconst b = global.get(\"bomba\") || { estado: 0 };\nconst agora = Date.now();\nconst alertas = [];\nlet desejado = null;   // \"ligar\", \"desligar\" ou null (manter como está)\nlet motivo = null;\nlet bloqueio = null;\n\nconst semTelemetria = !t || (agora - t.ts) > p.semTelemetriaS * 1000;\n// Logo após iniciar o Node-RED, espera a primeira telemetria antes de acusar falha.\nif (semTelemetria && agora - (global.get(\"fluxoIniciadoEm\") || 0) < p.semTelemetriaS * 1000) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"aguardando telemetria\" });\n    return null;\n}\n\nif (semTelemetria) {\n    // R5 - falha de comunicação: desliga por segurança\n    desejado = \"desligar\"; motivo = \"falha\"; bloqueio = \"falha\";\n    if (!b.alertaSemTelemetria) {\n        alertas.push({ tipo: \"sem_telemetria\",\n            mensagem: `⚠️ Sem telemetria do Dispositivo A há mais de ${p.semTelemetriaS} s. A bomba foi desligada por segurança.` });\n        b.alertaSemTelemetria = true;\n    }\n} else {\n    if (b.alertaSemTelemetria) {\n        b.alertaSemTelemetria = false;\n        alertas.push({ tipo: \"telemetria_restabelecida\", mensagem: \"✅ Telemetria do Dispositivo A restabelecida.\" });\n    }\n\n    // R3 - proteção do reservatório, com histerese (bloqueia < 20%, libera > 25%)\n    if (t.nivel < p.nivelCritico) b.reservatorioBloqueado = true;\n    else if (t.nivel > p.nivelLibera) b.reservatorioBloqueado = false;\n\n    const climaRecente = c.ts && (agora - c.ts) < 30 * 60 * 1000;\n    const chuvaPrevista = climaRecente && c.prob_chuva >= p.chuvaLimite;\n    const emPausa = b.pausaAte && agora < b.pausaAte;\n    const tempoLigadaMin = (b.estado === 1 && b.inicioTs) ? (agora - b.inicioTs) / 60000 : 0;\n\n    if (b.reservatorioBloqueado) {\n        desejado = \"desligar\"; motivo = \"reservatorio\"; bloqueio = \"reservatorio\";\n        if (!b.alertaReservatorio) {\n            alertas.push({ tipo: \"reservatorio_critico\",\n                mensagem: `🔴 Reservatório em nível crítico (${t.nivel}%). Bomba bloqueada até o nível passar de ${p.nivelLibera}%.` });\n            b.alertaReservatorio = true;\n        }\n    } else if (tempoLigadaMin > p.tempoMaxIrrigacaoMin) {\n        // R4 - tempo máximo: desliga e pausa a irrigação automática\n        desejado = \"desligar\"; motivo = \"tempo_maximo\"; bloqueio = \"tempo_maximo\";\n        b.pausaAte = agora + p.pausaAposTempoMaxMin * 60000;\n        alertas.push({ tipo: \"tempo_maximo\",\n            mensagem: `⏱️ A bomba ficou ligada ${p.tempoMaxIrrigacaoMin} min sem o solo chegar a ${p.umidadeAlvo}%. ` +\n                      `Ela foi desligada e a irrigação automática ficará pausada por ${p.pausaAposTempoMaxMin} min. ` +\n                      `Verifique o sensor de umidade e se há vazamento.` });\n    } else if (emPausa) {\n        desejado = \"desligar\"; motivo = \"tempo_maximo\"; bloqueio = \"tempo_maximo\";\n    } else if (chuvaPrevista) {\n        // R2 - chuva prevista: suspende a irrigação por demanda\n        desejado = \"desligar\"; motivo = \"chuva\"; bloqueio = \"chuva\";\n        if (!b.alertaChuva && t.umidade_solo < p.umidadeMin) {\n            alertas.push({ tipo: \"chuva_prevista\",\n                mensagem: `🌧️ Chuva prevista nas próximas 3 h (${c.prob_chuva}%). A irrigação foi adiada, ` +\n                          `mesmo com o solo em ${t.umidade_solo}%.` });\n            const adiamentos = (global.get(\"adiamentos\") || []).filter(a => agora - a.ts < 7 * 86400000);\n            adiamentos.push({ ts: agora });\n            global.set(\"adiamentos\", adiamentos);\n            b.alertaChuva = true;\n        }\n    } else {\n        // R1 - irrigação por demanda, com histerese (liga < 30%, desliga >= 60%)\n        if (t.umidade_solo < p.umidadeMin) { desejado = \"ligar\"; motivo = \"demanda\"; }\n        else if (t.umidade_solo >= p.umidadeAlvo) { desejado = \"desligar\"; motivo = \"demanda\"; }\n    }\n\n    if (!b.reservatorioBloqueado) b.alertaReservatorio = false;\n    if (!chuvaPrevista) b.alertaChuva = false;\n}\nb.bloqueio = bloqueio;\n\n// Publica o comando só quando o estado real é diferente do desejado.\n// Se o Dispositivo B não confirmar, repete a cada 15 s.\nlet comando = null;\nif (desejado) {\n    const quer = desejado === \"ligar\" ? 1 : 0;\n    const repetir = b.ultimoComando !== desejado || (agora - (b.ultimoComandoTs || 0)) > 15000;\n    if (b.estado !== quer && repetir) {\n        b.ultimoComando = desejado;\n        b.ultimoComandoTs = agora;\n        b.ultimoMotivo = motivo;\n        comando = { payload: JSON.stringify({ acao: desejado }) };\n    }\n}\nglobal.set(\"bomba\", b);\n\nconst texto = bloqueio ? `bloqueada (${bloqueio})` : (b.estado === 1 ? \"bomba ligada\" : \"bomba desligada\");\nnode.status({ fill: bloqueio ? \"yellow\" : (b.estado === 1 ? \"blue\" : \"grey\"), shape: \"dot\", text: texto });\n\nreturn [comando, alertas.map(a => ({ payload: a }))];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 260,
+        "wires": [
+            [
+                "sf_a_mqtt_cmd",
+                "sf_a_dbg_cmd"
+            ],
+            [
+                "sf_lo_a_alerta"
+            ]
+        ]
+    },
+    {
+        "id": "sf_a_mqtt_cmd",
+        "type": "mqtt out",
+        "z": "sf_tab_regras",
+        "name": "Comando (Disp. B)",
+        "topic": "mack10308763/smartfarm/dispB/comando",
+        "qos": "1",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sf_cfg_broker",
+        "x": 890,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "sf_a_dbg_cmd",
+        "type": "debug",
+        "z": "sf_tab_regras",
+        "name": "Comando publicado",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 890,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "sf_a_r6",
+        "type": "function",
+        "z": "sf_tab_regras",
+        "name": "R6 Validação do sensor",
+        "func": "// R6 - validação do sensor: compara a temperatura do DHT22 com a do OpenWeather.\nconst p = global.get(\"params\");\nconst t = global.get(\"telemetria\");\nconst c = global.get(\"clima\") || {};\nconst agora = Date.now();\nconst s = global.get(\"r6\") || {};\nif (!p || !t || typeof c.temperatura !== \"number\" || !c.tsTemperatura || agora - c.tsTemperatura > 30 * 60000) return null;\n\nconst diferenca = Math.abs(t.temperatura - c.temperatura);\nlet alerta = null;\nif (diferenca > p.difTempMaxC) {\n    if (!s.desde) s.desde = agora;\n    if (!s.alertado && agora - s.desde >= p.difTempMinutos * 60000) {\n        s.alertado = true;\n        alerta = { payload: { tipo: \"sensor_divergente\",\n            mensagem: `🌡️ Possível falha no sensor: o DHT22 marca ${t.temperatura} °C e o OpenWeather ` +\n                      `${c.temperatura} °C há mais de ${p.difTempMinutos} min.` } };\n    }\n} else {\n    s.desde = null;\n    s.alertado = false;\n}\nglobal.set(\"r6\", s);\nreturn alerta;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 640,
+        "y": 180,
+        "wires": [
+            [
+                "sf_lo_a_alerta"
+            ]
+        ]
+    },
+    {
+        "id": "sf_a_mqtt_status",
+        "type": "mqtt in",
+        "z": "sf_tab_regras",
+        "name": "Status da bomba (Disp. B)",
+        "topic": "mack10308763/smartfarm/dispB/status",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "sf_cfg_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 380,
+        "wires": [
+            [
+                "sf_a_status"
+            ]
+        ]
+    },
+    {
+        "id": "sf_a_status",
+        "type": "function",
+        "z": "sf_tab_regras",
+        "name": "R7 Registro de consumo",
+        "func": "// R7 - registro de consumo. Recebe o estado real da bomba publicado pelo Dispositivo B.\nconst p = global.get(\"params\");\nconst b = global.get(\"bomba\") || { estado: 0 };\nconst novo = Number(msg.payload && msg.payload.bomba) === 1 ? 1 : 0;\nconst anterior = b.estado;\nconst agora = Date.now();\nconst gravar = [];\n\nif (novo === 1 && anterior !== 1) b.inicioTs = agora;\n\nif (novo === 0 && anterior === 1 && b.inicioTs) {\n    const duracao_s = Math.round((agora - b.inicioTs) / 1000);\n    const litros = Math.round(duracao_s / 60 * p.vazaoLpm * 100) / 100;\n    const irrigacoes = (global.get(\"irrigacoes\") || []).filter(i => agora - i.ts < 7 * 86400000);\n    irrigacoes.push({ ts: agora, duracao_s, litros });\n    global.set(\"irrigacoes\", irrigacoes);\n    gravar.push({ measurement: \"irrigacao\", payload: [{ duracao_s, litros }, { dispositivo: \"dispB\" }] });\n    b.inicioTs = null;\n}\n\nif (novo !== anterior) {\n    gravar.push({ measurement: \"bomba\",\n                  payload: [{ estado: novo }, { dispositivo: \"dispB\", motivo: b.ultimoMotivo || \"desconhecido\" }] });\n}\nb.estado = novo;\nglobal.set(\"bomba\", b);\nnode.status({ fill: novo ? \"blue\" : \"grey\", shape: \"dot\", text: novo ? \"ligada\" : \"desligada\" });\nreturn [gravar];\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 380,
+        "wires": [
+            [
+                "sf_lo_a_influx"
+            ]
+        ]
+    },
+    {
+        "id": "sf_lo_a_alerta",
+        "type": "link out",
+        "z": "sf_tab_regras",
+        "name": "→ Alertas (Telegram)",
+        "mode": "link",
+        "links": [
+            "sf_li_alerta"
+        ],
+        "x": 905,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "sf_lo_a_influx",
+        "type": "link out",
+        "z": "sf_tab_regras",
+        "name": "→ InfluxDB",
+        "mode": "link",
+        "links": [
+            "sf_li_influx"
+        ],
+        "x": 885,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "sf_c_sf_tab_apis_40",
+        "type": "comment",
+        "z": "sf_tab_apis",
+        "name": "OpenWeather: clima atual e previsão de chuva (a cada 5 min)",
+        "info": "Defina OPENWEATHER_API_KEY (e, se quiser, OPENWEATHER_CIDADE) nas variáveis de ambiente do Node-RED.",
+        "x": 200,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "sf_b_tick",
+        "type": "inject",
+        "z": "sf_tab_apis",
+        "name": "A cada 5 min",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "300",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 3,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 120,
+        "wires": [
+            [
+                "sf_b_urls"
+            ]
+        ]
+    },
+    {
+        "id": "sf_b_urls",
+        "type": "function",
+        "z": "sf_tab_apis",
+        "name": "Monta consultas",
+        "func": "// Monta as duas consultas ao OpenWeather: clima atual e previsão das próximas 3 h.\n// Variáveis de ambiente: OPENWEATHER_API_KEY (obrigatória) e OPENWEATHER_CIDADE (padrão: Sao Paulo,BR).\nconst chave = env.get(\"OPENWEATHER_API_KEY\");\nif (!chave) {\n    node.warn(\"Defina a variável de ambiente OPENWEATHER_API_KEY.\");\n    node.status({ fill: \"red\", shape: \"ring\", text: \"sem chave da API\" });\n    return null;\n}\nconst base = env.get(\"OPENWEATHER_API_BASE\") || \"https://api.openweathermap.org\";\nconst cidade = encodeURIComponent(env.get(\"OPENWEATHER_CIDADE\") || \"Sao Paulo,BR\");\nnode.status({ fill: \"green\", shape: \"dot\", text: new Date().toLocaleTimeString(\"pt-BR\") });\nreturn [\n    { url: `${base}/data/2.5/weather?q=${cidade}&units=metric&appid=${chave}` },\n    { url: `${base}/data/2.5/forecast?q=${cidade}&units=metric&cnt=1&appid=${chave}` }\n];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 120,
+        "wires": [
+            [
+                "sf_b_http_atual"
+            ],
+            [
+                "sf_b_http_prev"
+            ]
+        ]
+    },
+    {
+        "id": "sf_b_http_atual",
+        "type": "http request",
+        "z": "sf_tab_apis",
+        "name": "Clima atual",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 540,
+        "y": 80,
+        "wires": [
+            [
+                "sf_b_chg_temp"
+            ]
+        ]
+    },
+    {
+        "id": "sf_b_chg_temp",
+        "type": "change",
+        "z": "sf_tab_apis",
+        "name": "Extrai main.temp",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.main.temp",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 730,
+        "y": 80,
+        "wires": [
+            [
+                "sf_b_temp"
+            ]
+        ]
+    },
+    {
+        "id": "sf_b_temp",
+        "type": "function",
+        "z": "sf_tab_apis",
+        "name": "Guarda temperatura da API",
+        "func": "// Guarda a temperatura atual informada pela API (extraída de main.temp pelo nó anterior).\nif (typeof msg.payload !== \"number\") {\n    node.warn(\"Resposta inesperada do OpenWeather (clima atual). Código HTTP: \" + msg.statusCode);\n    return null;\n}\nconst c = global.get(\"clima\") || {};\nc.temperatura = msg.payload;\nc.tsTemperatura = Date.now();\nglobal.set(\"clima\", c);\nnode.status({ fill: \"green\", shape: \"dot\", text: `${msg.payload} °C` });\nreturn null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 950,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "sf_b_http_prev",
+        "type": "http request",
+        "z": "sf_tab_apis",
+        "name": "Previsão (3 h)",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 540,
+        "y": 160,
+        "wires": [
+            [
+                "sf_b_chuva"
+            ]
+        ]
+    },
+    {
+        "id": "sf_b_chuva",
+        "type": "function",
+        "z": "sf_tab_apis",
+        "name": "Probabilidade de chuva",
+        "func": "// Probabilidade de chuva no próximo bloco de 3 h da previsão (campo \"pop\", de 0 a 1).\nconst r = msg.payload;\nif (!r || !Array.isArray(r.list) || r.list.length === 0) {\n    node.warn(\"Resposta inesperada do OpenWeather (previsão). Código HTTP: \" + msg.statusCode);\n    return null;\n}\nconst prob = Math.round((r.list[0].pop || 0) * 100);\nconst c = global.get(\"clima\") || {};\nc.prob_chuva = prob;\nc.ts = Date.now();\nglobal.set(\"clima\", c);\nnode.status({ fill: \"green\", shape: \"dot\", text: `chuva em 3 h: ${prob}%` });\n\nconst campos = { prob_chuva: prob };\nif (typeof c.temperatura === \"number\") campos.temperatura = c.temperatura;\nreturn [{ measurement: \"clima\", payload: [campos, { fonte: \"openweather\" }] }, { topic: \"clima\" }];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 160,
+        "wires": [
+            [
+                "sf_lo_b_influx"
+            ],
+            [
+                "sf_lo_b_regras"
+            ]
+        ]
+    },
+    {
+        "id": "sf_lo_b_influx",
+        "type": "link out",
+        "z": "sf_tab_apis",
+        "name": "→ InfluxDB",
+        "mode": "link",
+        "links": [
+            "sf_li_influx"
+        ],
+        "x": 965,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "sf_lo_b_regras",
+        "type": "link out",
+        "z": "sf_tab_apis",
+        "name": "→ Regras",
+        "mode": "link",
+        "links": [
+            "sf_li_regras"
+        ],
+        "x": 960,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "sf_c_sf_tab_telegram_40",
+        "type": "comment",
+        "z": "sf_tab_telegram",
+        "name": "Alertas e bot de consulta do Telegram",
+        "info": "Variáveis: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (recebe os alertas) e TELEGRAM_CHAT_IDS_AUTORIZADOS (podem consultar o bot).",
+        "x": 230,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "sf_li_alerta",
+        "type": "link in",
+        "z": "sf_tab_telegram",
+        "name": "Alertas",
+        "links": [
+            "sf_lo_a_alerta"
+        ],
+        "x": 95,
+        "y": 100,
+        "wires": [
+            [
+                "sf_c_intervalo"
+            ]
+        ]
+    },
+    {
+        "id": "sf_c_intervalo",
+        "type": "function",
+        "z": "sf_tab_telegram",
+        "name": "Intervalo mínimo (30 min)",
+        "func": "// Intervalo mínimo entre alertas do mesmo tipo, para não lotar o Telegram.\nconst p = global.get(\"params\") || { intervaloAlertaMin: 30 };\nconst a = msg.payload;\nconst agora = Date.now();\nconst ultimos = global.get(\"ultimosAlertas\") || {};\nif (ultimos[a.tipo] && agora - ultimos[a.tipo] < p.intervaloAlertaMin * 60000) return null;\nultimos[a.tipo] = agora;\nglobal.set(\"ultimosAlertas\", ultimos);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 290,
+        "y": 100,
+        "wires": [
+            [
+                "sf_c_alerta"
+            ]
+        ]
+    },
+    {
+        "id": "sf_c_alerta",
+        "type": "function",
+        "z": "sf_tab_telegram",
+        "name": "Monta alerta",
+        "func": "// Monta o envio do alerta pela Telegram Bot API (método sendMessage).\n// Variáveis de ambiente: TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID (chat que recebe os alertas).\nconst token = env.get(\"TELEGRAM_BOT_TOKEN\");\nconst chat = env.get(\"TELEGRAM_CHAT_ID\");\nconst base = env.get(\"TELEGRAM_API_BASE\") || \"https://api.telegram.org\";\nmsg.alerta = msg.payload;\nif (!token || !chat) {\n    node.warn(\"Telegram não configurado: alerta registrado sem envio. \" + msg.alerta.mensagem);\n    msg.payload = { ok: false };\n    return [null, msg];\n}\nmsg.method = \"POST\";\nmsg.url = `${base}/bot${token}/sendMessage`;\nmsg.headers = { \"content-type\": \"application/json\" };\nmsg.payload = { chat_id: chat, text: msg.alerta.mensagem };\nreturn [msg, null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 100,
+        "wires": [
+            [
+                "sf_c_send"
+            ],
+            [
+                "sf_c_resultado"
+            ]
+        ]
+    },
+    {
+        "id": "sf_c_poll",
+        "type": "inject",
+        "z": "sf_tab_telegram",
+        "name": "A cada 3 s",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "3",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 5,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 200,
+        "wires": [
+            [
+                "sf_c_getupd"
+            ]
+        ]
+    },
+    {
+        "id": "sf_c_getupd",
+        "type": "function",
+        "z": "sf_tab_telegram",
+        "name": "Busca mensagens (getUpdates)",
+        "func": "// Busca mensagens novas enviadas ao bot (getUpdates), sem precisar de HTTPS nem porta aberta.\nconst token = env.get(\"TELEGRAM_BOT_TOKEN\");\nif (!token) return null;\nconst base = env.get(\"TELEGRAM_API_BASE\") || \"https://api.telegram.org\";\nconst agora = Date.now();\nconst ocupado = global.get(\"tgOcupadoDesde\");\nif (ocupado && agora - ocupado < 30000) return null;   // consulta anterior ainda em andamento\nglobal.set(\"tgOcupadoDesde\", agora);\nconst offset = global.get(\"tgOffset\") || 0;\nmsg.method = \"GET\";\nmsg.url = `${base}/bot${token}/getUpdates?timeout=0&offset=${offset}`;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 200,
+        "wires": [
+            [
+                "sf_c_http_upd"
+            ]
+        ]
+    },
+    {
+        "id": "sf_c_http_upd",
+        "type": "http request",
+        "z": "sf_tab_telegram",
+        "name": "Telegram getUpdates",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 560,
+        "y": 200,
+        "wires": [
+            [
+                "sf_c_bot"
+            ]
+        ]
+    },
+    {
+        "id": "sf_c_bot",
+        "type": "function",
+        "z": "sf_tab_telegram",
+        "name": "Responde comandos",
+        "func": "// Responde aos comandos do menu de consulta (docs/bot-telegram.md).\n// Só chats listados em TELEGRAM_CHAT_IDS_AUTORIZADOS (ou TELEGRAM_CHAT_ID) recebem resposta.\nglobal.set(\"tgOcupadoDesde\", null);\nconst r = msg.payload;\nif (!r || r.ok !== true || !Array.isArray(r.result)) {\n    node.warn(\"Falha ao buscar mensagens do bot. Código HTTP: \" + msg.statusCode);\n    return null;\n}\nconst token = env.get(\"TELEGRAM_BOT_TOKEN\");\nconst base = env.get(\"TELEGRAM_API_BASE\") || \"https://api.telegram.org\";\nconst autorizados = (env.get(\"TELEGRAM_CHAT_IDS_AUTORIZADOS\") || env.get(\"TELEGRAM_CHAT_ID\") || \"\")\n    .split(\",\").map(s => s.trim()).filter(Boolean);\n\nconst p = global.get(\"params\") || {};\nconst t = global.get(\"telemetria\") || {};\nconst b = global.get(\"bomba\") || {};\nconst c = global.get(\"clima\") || {};\nconst agora = Date.now();\n\nconst fmt = (v, casas = 0) => (typeof v !== \"number\" || isNaN(v)) ? \"–\" : v.toFixed(casas).replace(\".\", \",\");\nconst idadeS = t.ts ? Math.round((agora - t.ts) / 1000) : null;\nconst desatualizado = idadeS === null || idadeS > (p.semTelemetriaS || 60);\n\nconst dias = Math.min(7, Math.max(1, Math.ceil((agora - (global.get(\"inicioSistema\") || agora)) / 86400000)));\nconst irrigacoes = (global.get(\"irrigacoes\") || []).filter(i => agora - i.ts < 7 * 86400000);\nconst usadoL = irrigacoes.reduce((s, i) => s + i.litros, 0);\nconst rotinaL = (p.rotinaFixaLDia || 60) * dias;\nconst adiadas = (global.get(\"adiamentos\") || []).filter(a => agora - a.ts < 7 * 86400000).length;\nconst consumoDia = usadoL / dias;\nconst autonomia = (typeof t.nivel === \"number\" && consumoDia > 0)\n    ? fmt(t.nivel / 100 * (p.reservatorioL || 200) / consumoDia, 1) + \" dias\" : \"sem consumo registrado\";\n\nfunction faixa(u) {\n    if (typeof u !== \"number\") return \"sem leitura\";\n    return u < (p.umidadeMin || 30) ? \"seco\" : (u < (p.umidadeAlvo || 60) ? \"ideal\" : \"acima do ideal\");\n}\nfunction textoBomba() {\n    const motivos = { chuva: \"chuva prevista\", reservatorio: \"reservatório crítico\",\n                      tempo_maximo: \"tempo máximo atingido\", falha: \"sem telemetria\" };\n    if (b.bloqueio) return `bloqueada (${motivos[b.bloqueio] || b.bloqueio})`;\n    return b.estado === 1 ? \"ligada\" : \"desligada\";\n}\nconst aviso = desatualizado ? \"\\n⚠️ Sem leitura recente do Dispositivo A: os valores podem estar desatualizados.\" : \"\";\n\nconst respostas = {\n    \"/status\": () =>\n        `🌱 Umidade do solo: ${fmt(t.umidade_solo)}% (${faixa(t.umidade_solo)})\\n` +\n        `💧 Reservatório: ${fmt(t.nivel)}% · autonomia ≈ ${autonomia}\\n` +\n        `🌧️ Chuva prevista (3 h): ${fmt(c.prob_chuva)}%\\n` +\n        `⚙️ Bomba: ${textoBomba()}\\n` +\n        `Última leitura: ${idadeS === null ? \"nenhuma\" : \"há \" + idadeS + \" s\"}` + aviso,\n    \"/umidade\": () => `🌱 Umidade do solo: ${fmt(t.umidade_solo)}% (${faixa(t.umidade_solo)}). ` +\n                      `Faixa ideal: ${p.umidadeMin}% a ${p.umidadeAlvo}%.` + aviso,\n    \"/nivel\": () => `💧 Reservatório: ${fmt(t.nivel)}% · autonomia ≈ ${autonomia}` +\n                    (t.nivel < p.nivelCritico ? \"\\n🔴 Nível crítico: bomba bloqueada.\" : \"\") + aviso,\n    \"/chuva\": () => `🌧️ Chuva prevista nas próximas 3 h: ${fmt(c.prob_chuva)}%. ` +\n                    (c.prob_chuva >= p.chuvaLimite ? \"Irrigação adiada.\" : \"Irrigação liberada.\"),\n    \"/bomba\": () => `⚙️ Bomba: ${textoBomba()}.` + aviso,\n    \"/economia\": () => `📊 Últimos ${dias} dia(s): ${fmt(usadoL, 1)} L usados × ${fmt(rotinaL)} L de uma rotina fixa. ` +\n                       `Economia de ${fmt((1 - usadoL / rotinaL) * 100)}%. ${adiadas} irrigação(ões) adiada(s) por chuva.`\n};\nconst ajuda = \"Comandos disponíveis:\\n/status · /umidade · /nivel · /chuva · /bomba · /economia\";\nconst teclado = { keyboard: [[\"/status\"], [\"/umidade\", \"/nivel\"], [\"/chuva\", \"/bomba\"], [\"/economia\", \"/ajuda\"]],\n                  resize_keyboard: true };\n\nlet offset = global.get(\"tgOffset\") || 0;\nconst envios = [];\nfor (const u of r.result) {\n    offset = Math.max(offset, u.update_id + 1);\n    const m = u.message;\n    if (!m || typeof m.text !== \"string\") continue;\n    const chatId = String(m.chat.id);\n    if (!autorizados.includes(chatId)) {\n        node.warn(\"Mensagem de chat não autorizado ignorada.\");\n        continue;\n    }\n    const comando = m.text.trim().split(/[\\s@]/)[0].toLowerCase();\n    let texto;\n    if (respostas[comando]) texto = respostas[comando]();\n    else if (comando === \"/start\" || comando === \"/ajuda\") texto = ajuda;\n    else texto = \"Comando não reconhecido.\\n\" + ajuda;\n\n    envios.push({\n        method: \"POST\",\n        url: `${base}/bot${token}/sendMessage`,\n        headers: { \"content-type\": \"application/json\" },\n        payload: { chat_id: m.chat.id, text: texto, reply_markup: teclado },\n        comando: { comando: (respostas[comando] || comando === \"/start\" || comando === \"/ajuda\") ? comando : \"desconhecido\",\n                   chat: \"***\" + chatId.slice(-3) }   // ID anonimizado para o banco de dados\n    });\n}\nglobal.set(\"tgOffset\", offset);\nreturn [envios];\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 780,
+        "y": 200,
+        "wires": [
+            [
+                "sf_c_send"
+            ]
+        ]
+    },
+    {
+        "id": "sf_c_send",
+        "type": "http request",
+        "z": "sf_tab_telegram",
+        "name": "Telegram sendMessage",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 760,
+        "y": 120,
+        "wires": [
+            [
+                "sf_c_resultado"
+            ]
+        ]
+    },
+    {
+        "id": "sf_c_resultado",
+        "type": "function",
+        "z": "sf_tab_telegram",
+        "name": "Registra resultado do envio",
+        "func": "// Registra no InfluxDB o resultado de cada envio ao Telegram (alerta ou resposta do bot).\nconst ok = !!(msg.payload && msg.payload.ok);\nif (!ok && msg.statusCode) {\n    node.warn(`Telegram respondeu ${msg.statusCode}: ${JSON.stringify(msg.payload).slice(0, 200)}`);\n}\nif (msg.alerta) {\n    return { measurement: \"alertas\", payload: [{ mensagem: msg.alerta.mensagem, enviado: ok ? 1 : 0 }, { tipo: msg.alerta.tipo }] };\n}\nif (msg.comando) {\n    return { measurement: \"comandos\", payload: [{ chat: msg.comando.chat, respondido: ok ? 1 : 0 }, { comando: msg.comando.comando }] };\n}\nreturn null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 990,
+        "y": 120,
+        "wires": [
+            [
+                "sf_lo_c_influx"
+            ]
+        ]
+    },
+    {
+        "id": "sf_lo_c_influx",
+        "type": "link out",
+        "z": "sf_tab_telegram",
+        "name": "→ InfluxDB",
+        "mode": "link",
+        "links": [
+            "sf_li_influx"
+        ],
+        "x": 1165,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "sf_c_sf_tab_influx_40",
+        "type": "comment",
+        "z": "sf_tab_influx",
+        "name": "Gravação no InfluxDB (bucket smartfarm)",
+        "info": "Cada mensagem traz msg.measurement e msg.payload = [campos, tags]. Configure a URL e o token no nó de configuração 'InfluxDB SmartFarm'.",
+        "x": 230,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "sf_li_influx",
+        "type": "link in",
+        "z": "sf_tab_influx",
+        "name": "Gravar",
+        "links": [
+            "sf_lo_a_influx",
+            "sf_lo_b_influx",
+            "sf_lo_c_influx"
+        ],
+        "x": 95,
+        "y": 100,
+        "wires": [
+            [
+                "sf_d_out",
+                "sf_d_dbg"
+            ]
+        ]
+    },
+    {
+        "id": "sf_d_out",
+        "type": "influxdb out",
+        "z": "sf_tab_influx",
+        "influxdb": "sf_cfg_influx",
+        "name": "InfluxDB",
+        "measurement": "",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "smartfarm",
+        "bucket": "smartfarm",
+        "x": 290,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "sf_d_dbg",
+        "type": "debug",
+        "z": "sf_tab_influx",
+        "name": "Registro gravado",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 300,
+        "y": 160,
+        "wires": []
+    }
+]

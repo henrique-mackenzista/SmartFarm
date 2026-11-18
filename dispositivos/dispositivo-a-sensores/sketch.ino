@@ -1,7 +1,7 @@
 // SmartFarm - Dispositivo A (sensores)
 // ESP32 simulado no Wokwi. Lê umidade do solo (potenciômetro), temperatura e
 // umidade do ar (DHT22) e nível do reservatório (HC-SR04) e publica tudo em JSON
-// no tópico smartfarm/dispA/telemetria a cada 5 segundos.
+// no tópico mack10308763/smartfarm/dispA/telemetria a cada 5 segundos.
 
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -11,13 +11,13 @@
 const char* WIFI_SSID     = "Wokwi-GUEST";
 const char* WIFI_PASSWORD = "";
 
-const char* BROKER_HOST     = "SEU_IP_ELASTICO";   // IP público (elástico) do broker Mosquitto
+const char* BROKER_HOST     = "broker.hivemq.com"; // broker MQTT público
 const int   BROKER_PORT     = 1883;
 const char* BROKER_USER     = "";                  // preencha se o broker exigir autenticação
 const char* BROKER_PASSWORD = "";
-const char* CLIENT_ID       = "smartfarm-dispA";   // precisa ser único no broker
+const char* CLIENT_ID       = "mack10308763-dispA"; // precisa ser único no broker
 
-const char* TOPICO_TELEMETRIA = "smartfarm/dispA/telemetria";
+const char* TOPICO_TELEMETRIA = "mack10308763/smartfarm/dispA/telemetria";
 const unsigned long INTERVALO_PUBLICACAO_MS = 5000;
 
 // ---------- Pinos ----------

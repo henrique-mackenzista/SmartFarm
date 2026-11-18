@@ -1,7 +1,7 @@
 // SmartFarm - Dispositivo B (atuador)
-// ESP32 simulado no Wokwi. Assina smartfarm/dispB/comando e liga ou desliga o relé
+// ESP32 simulado no Wokwi. Assina mack10308763/smartfarm/dispB/comando e liga ou desliga o relé
 // que representa a bomba de irrigação. A cada mudança publica o estado em
-// smartfarm/dispB/status como mensagem retida.
+// mack10308763/smartfarm/dispB/status como mensagem retida.
 
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -10,14 +10,14 @@
 const char* WIFI_SSID     = "Wokwi-GUEST";
 const char* WIFI_PASSWORD = "";
 
-const char* BROKER_HOST     = "SEU_IP_ELASTICO";   // IP público (elástico) do broker Mosquitto
+const char* BROKER_HOST     = "broker.hivemq.com"; // broker MQTT público
 const int   BROKER_PORT     = 1883;
 const char* BROKER_USER     = "";                  // preencha se o broker exigir autenticação
 const char* BROKER_PASSWORD = "";
-const char* CLIENT_ID       = "smartfarm-dispB";   // precisa ser único no broker
+const char* CLIENT_ID       = "mack10308763-dispB"; // precisa ser único no broker
 
-const char* TOPICO_COMANDO = "smartfarm/dispB/comando";
-const char* TOPICO_STATUS  = "smartfarm/dispB/status";
+const char* TOPICO_COMANDO = "mack10308763/smartfarm/dispB/comando";
+const char* TOPICO_STATUS  = "mack10308763/smartfarm/dispB/status";
 
 // ---------- Pinos ----------
 #define PINO_RELE 26   // relé que representa a bomba
