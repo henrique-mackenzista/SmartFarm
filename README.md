@@ -27,6 +27,8 @@ O SmartFarm decide **quando irrigar com base na condição real do solo**:
 - envia alertas pelo Telegram e mostra tudo em dashboards no Grafana;
 - responde a consultas por um [bot no Telegram](docs/bot-telegram.md), com menu de botões: status geral, umidade, nível do reservatório, chuva prevista, estado da bomba e economia de água.
 
+> 📄 **Artigo:** [SmartFarm-Artigo-N1.pdf](docs/SmartFarm-Artigo-N1.pdf) ([versão .docx](docs/SmartFarm-Artigo-N1.docx))
+
 ## Arquitetura
 
 ```mermaid
@@ -65,6 +67,8 @@ smartfarm/
 │   ├── banco-de-dados.md          o que é gravado no InfluxDB
 │   ├── dashboards.md              dashboards e painéis do Grafana
 │   ├── bot-telegram.md            comandos do bot, segurança e código do Node-RED
+│   ├── SmartFarm-Artigo-N1.docx   artigo do projeto (primeira entrega, corrigida)
+│   ├── SmartFarm-Artigo-N1.pdf    o mesmo artigo em PDF, para leitura no navegador
 │   └── img/                       diagramas e capturas de tela
 ├── dispositivos/
 │   ├── README.md                  ligações, adaptações e como usar no Wokwi
