@@ -1,3 +1,2 @@
 PubSubClient
-DHT sensor library
-Adafruit Unified Sensor
+DHT sensor library for ESPx

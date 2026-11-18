@@ -13,6 +13,31 @@ O fluxo usa só nós que já vêm com o Node-RED, mais a paleta `node-red-contri
 
 ## 1. Instalar o Node-RED no computador
 
+### Opção A: Docker (usada pela equipe)
+
+Com o [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado, rode no PowerShell (troque os valores pelas suas chaves):
+
+```powershell
+docker run -d --name mynodered --restart unless-stopped -p 1880:1880 `
+  -v C:\smartfarm\node-red:/data `
+  -e TZ=America/Sao_Paulo `
+  -e OPENWEATHER_API_KEY=sua_chave `
+  -e "OPENWEATHER_CIDADE=Sao Paulo,BR" `
+  -e TELEGRAM_BOT_TOKEN=token_do_bot `
+  -e TELEGRAM_CHAT_ID=id_do_chat `
+  -e TELEGRAM_CHAT_IDS_AUTORIZADOS=id_1,id_2 `
+  -e 'SMARTFARM_PARAMETROS={"semTelemetriaS":180}' `
+  nodered/node-red
+```
+
+O fluxo, as credenciais e a memória ficam na pasta `C:\smartfarm\node-red`, então o container pode ser removido e recriado sem perder nada. Para mudar uma variável: `docker stop mynodered`, `docker rm mynodered` e o mesmo `docker run` com o valor novo. A linha `SMARTFARM_PARAMETROS` é opcional (veja "Testar com tempos menores").
+
+Dentro do container, `localhost` é o próprio container. Por isso o banco usa o InfluxDB Cloud, e não um InfluxDB instalado no computador.
+
+Com Docker, as chaves já vão pelas variáveis `-e`: no passo 3, faça só a parte (b), editando o `settings.js` dentro de `C:\smartfarm\node-red`.
+
+### Opção B: npm
+
 Requer o [Node.js](https://nodejs.org) (versão LTS).
 
 ```bash
@@ -56,9 +81,11 @@ Salve e reinicie o Node-RED (Ctrl+C no terminal e `node-red` de novo).
 
 1. Menu (☰) → **Import** → **select a file to import** → escolha `flows.json` → **Import**.
 2. Dê dois cliques em qualquer nó do InfluxDB (aba 4) e, no lápis ao lado de **Server**, informe:
-   - **URL** do InfluxDB (ex.: `http://localhost:8086` ou a URL do InfluxDB Cloud);
-   - **Token** com permissão de escrita no bucket.
-   No próprio nó `InfluxDB`, confira a **Organization** e o **Bucket** (padrão: `smartfarm`).
+   - **Version:** 2.0;
+   - **URL** do InfluxDB Cloud (ex.: `https://us-east-1-1.aws.cloud2.influxdata.com`);
+   - **Token** com permissão de leitura e escrita no bucket.
+
+   No próprio nó `InfluxDB`, preencha a **Organization** com o Organization ID (aparece na URL do console do InfluxDB Cloud, depois de `/orgs/`), o **Bucket** `smartfarm` e a **Time Precision** em milissegundos.
 3. Clique em **Deploy**.
 
 O broker já vem configurado com `broker.hivemq.com`, porta 1883, e o client ID `mack10308763-nodered`.
@@ -72,6 +99,7 @@ O broker já vem configurado com `broker.hivemq.com`, porta 1883, e o client ID 
 | Aba 2, nós "Guarda temperatura" e "Probabilidade de chuva" | a temperatura e a chance de chuva da última consulta |
 | Painel de debug (🐞, à direita) | cada comando publicado para o Dispositivo B |
 | Telegram | resposta ao enviar `/status` para o bot |
+| InfluxDB Cloud, Data Explorer | `SELECT * FROM "telemetria" WHERE time >= now() - interval '1 hour'` retorna uma linha a cada ~5 s |
 
 ## Testar com tempos menores
 

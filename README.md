@@ -50,9 +50,9 @@ Todos os tópicos começam com `mack10308763/smartfarm/` ([detalhes](docs/topico
 |---|---|---|
 | Dispositivos | 2 × ESP32 simulados no Wokwi | Wokwi (rede Wokwi-GUEST) |
 | Broker MQTT | HiveMQ público, porta 1883 | `broker.hivemq.com` |
-| Regras de negócio | Node-RED | computador da equipe |
-| Banco de dados | InfluxDB (séries temporais) | a definir ([docs/arquitetura.md](docs/arquitetura.md)) |
-| Dashboards | Grafana | a definir ([docs/arquitetura.md](docs/arquitetura.md)) |
+| Regras de negócio | Node-RED | computador da equipe (Docker) |
+| Banco de dados | InfluxDB (séries temporais) | InfluxDB Cloud, plano gratuito |
+| Dashboards | Grafana | Grafana Cloud, plano gratuito |
 | APIs externas | OpenWeather, Telegram Bot API | serviços de terceiros |
 
 ## Estrutura do repositório
@@ -91,15 +91,15 @@ Os arquivos marcados como "a adicionar" entram no repositório à medida que o p
 ## Como reproduzir o projeto
 
 1. **Dispositivos** — crie dois projetos ESP32 no Wokwi e copie para cada um os arquivos `sketch.ino`, `diagram.json` e `libraries.txt` da pasta correspondente em [`dispositivos/`](dispositivos/). Eles já usam o broker `broker.hivemq.com`. As ligações e adaptações estão em [`dispositivos/README.md`](dispositivos/README.md).
-2. **Banco de dados** — crie um bucket `smartfarm` no InfluxDB e um token com permissão de escrita e leitura.
+2. **Banco de dados** — crie uma conta gratuita no [InfluxDB Cloud](https://cloud2.influxdata.com), um bucket `smartfarm` e dois tokens: um com leitura e escrita (Node-RED) e outro só de leitura (Grafana).
 3. **Bot do Telegram** — crie o bot no @BotFather conforme [docs/bot-telegram.md](docs/bot-telegram.md).
-4. **Node-RED** — instale o Node-RED no computador, configure as chaves no `settings.js` e importe [`node-red/flows.json`](node-red/flows.json), seguindo [`node-red/README.md`](node-red/README.md).
-5. **Grafana** — adicione o InfluxDB como fonte de dados e importe os dois arquivos JSON de [`grafana/`](grafana/).
+4. **Node-RED** — rode o Node-RED no computador (Docker ou npm), informe as chaves e importe [`node-red/flows.json`](node-red/flows.json), seguindo [`node-red/README.md`](node-red/README.md).
+5. **Grafana** — no Grafana Cloud, adicione o InfluxDB como fonte de dados (linguagem SQL) e importe os dois arquivos JSON de [`grafana/`](grafana/).
 6. **Teste** — inicie as duas simulações no Wokwi e gire o potenciômetro abaixo de 30%: o Node-RED deve publicar o comando de ligar, o relé do Dispositivo B deve acionar e o acionamento deve aparecer no dashboard. Os demais testes estão em [docs/regras-de-negocio.md](docs/regras-de-negocio.md).
 
 ## Dados sensíveis
 
-Chaves de API, tokens, IDs de chat e números de telefone **não** são publicados neste repositório. As chaves ficam só no `settings.js` do Node-RED de quem roda o projeto, o token do InfluxDB fica nas credenciais do Node-RED (que não são exportadas), e os valores necessários estão listados, sem conteúdo real, em [`.env.example`](.env.example).
+Chaves de API, tokens, IDs de chat e números de telefone **não** são publicados neste repositório. As chaves ficam só nas variáveis de ambiente do Node-RED de quem roda o projeto, o token do InfluxDB fica nas credenciais do Node-RED (que não são exportadas), e os valores necessários estão listados, sem conteúdo real, em [`.env.example`](.env.example).
 
 ## Referências
 

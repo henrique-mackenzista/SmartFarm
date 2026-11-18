@@ -40,5 +40,7 @@ A faixa entre 30% e 60% (histerese) evita que a bomba fique ligando e desligando
 | R3 | aumentar a distância do HC-SR04 até o nível ficar abaixo de 20% |
 | R4 | reduzir o tempo máximo com `SMARTFARM_PARAMETROS` ([node-red/README.md](../node-red/README.md)) e manter a umidade abaixo de 60% |
 | R5 | parar a simulação do Dispositivo A |
+
+> Quando o Wokwi roda bem abaixo de 100% da velocidade, ou a janela da simulação fica em segundo plano, o Dispositivo A pode demorar mais de 60 s entre publicações e disparar a R5 sem falha real. Nos testes, a tolerância pode ser aumentada com `SMARTFARM_PARAMETROS` = `{"semTelemetriaS": 180}`. Também ajuda rodar cada dispositivo em um navegador ou computador diferente.
 | R6 | ajustar a temperatura do DHT22 no Wokwi para longe da temperatura real |
 | R7 | conferir no InfluxDB/Grafana o registro gravado após um ciclo de irrigação |

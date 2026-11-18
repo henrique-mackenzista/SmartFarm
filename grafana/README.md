@@ -11,5 +11,14 @@ Dois dashboards, descritos em detalhe em [docs/dashboards.md](../docs/dashboards
 
 ## Como importar
 
-1. **Connections → Data sources → Add data source → InfluxDB**: informe a URL, a organização, o bucket `smartfarm` e o token.
+1. **Connections → Data sources → Add data source → InfluxDB** e preencha:
+
+   | Campo | Valor |
+   |---|---|
+   | Query language | SQL |
+   | URL | URL do InfluxDB Cloud (ex.: `https://us-east-1-1.aws.cloud2.influxdata.com`) |
+   | Database | `smartfarm` |
+   | Token | token só de leitura do bucket `smartfarm` |
+
+   Clique em **Save & test**.
 2. **Dashboards → New → Import**: envie cada arquivo JSON e selecione a fonte de dados criada no passo anterior.

@@ -1,105 +1,110 @@
 // SmartFarm - Dispositivo B (atuador)
-// ESP32 simulado no Wokwi. Assina mack10308763/smartfarm/dispB/comando e liga ou desliga o relé
-// que representa a bomba de irrigação. A cada mudança publica o estado em
-// mack10308763/smartfarm/dispB/status como mensagem retida.
+// Assina mack10308763/smartfarm/dispB/comando, liga/desliga o rele da bomba (e o LED)
+// e confirma o estado em mack10308763/smartfarm/dispB/status (mensagem retida).
 
 #include <WiFi.h>
 #include <PubSubClient.h>
 
-// ---------- Configuração ----------
-const char* WIFI_SSID     = "Wokwi-GUEST";
-const char* WIFI_PASSWORD = "";
+// ---------- Configuracoes ----------
+const char* SSID_NAME = "Wokwi-GUEST";
+const char* SSID_PASS = "";
 
-const char* BROKER_HOST     = "broker.hivemq.com"; // broker MQTT público
-const int   BROKER_PORT     = 1883;
-const char* BROKER_USER     = "";                  // preencha se o broker exigir autenticação
-const char* BROKER_PASSWORD = "";
-const char* CLIENT_ID       = "mack10308763-dispB"; // precisa ser único no broker
+const char* BROKER_URL  = "broker.hivemq.com";  // broker MQTT publico
+const int   BROKER_PORT = 1883;
+const char* CLIENT_ID   = "mack10308763-dispB";  // deve ser diferente do Dispositivo A
 
 const char* TOPICO_COMANDO = "mack10308763/smartfarm/dispB/comando";
 const char* TOPICO_STATUS  = "mack10308763/smartfarm/dispB/status";
 
-// ---------- Pinos ----------
-#define PINO_RELE 26   // relé que representa a bomba
-#define PINO_LED  27   // LED que acende junto com a bomba
+const int PIN_RELE = 26;  // modulo rele - IN (bomba)
+const int PIN_LED  = 27;  // LED indicador da bomba
 
+// ---------- Objetos ----------
 WiFiClient espClient;
-PubSubClient mqtt(espClient);
+PubSubClient clienteMQTT(espClient);
 bool bombaLigada = false;
 
-void publicarStatus() {
-  const char* payload = bombaLigada ? "{\"bomba\":1}" : "{\"bomba\":0}";
-  mqtt.publish(TOPICO_STATUS, payload, true);   // retida: quem conectar depois recebe o estado atual
-  Serial.print("Status publicado: ");
-  Serial.println(payload);
-}
+void acionarBomba(bool ligar);  // declaracao antecipada
 
-void definirBomba(bool ligar) {
-  if (ligar == bombaLigada) return;   // nada mudou
-  bombaLigada = ligar;
-  digitalWrite(PINO_RELE, ligar ? HIGH : LOW);
-  digitalWrite(PINO_LED, ligar ? HIGH : LOW);
-  Serial.println(ligar ? "Bomba LIGADA" : "Bomba DESLIGADA");
-  publicarStatus();
-}
-
-void aoReceberMensagem(char* topico, byte* conteudo, unsigned int tamanho) {
-  String mensagem;
-  for (unsigned int i = 0; i < tamanho; i++) mensagem += (char)conteudo[i];
-  Serial.print("Comando recebido: ");
-  Serial.println(mensagem);
-
-  // Formato esperado: {"acao":"ligar"} ou {"acao":"desligar"}
-  if (mensagem.indexOf("\"desligar\"") >= 0) {
-    definirBomba(false);
-  } else if (mensagem.indexOf("\"ligar\"") >= 0) {
-    definirBomba(true);
-  } else {
-    Serial.println("Comando desconhecido; ignorado.");
-  }
-}
-
+// ---------- Funcoes ----------
 void conectarWiFi() {
-  Serial.print("Conectando ao Wi-Fi");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Conectando-se ao Wi-Fi");
+  WiFi.begin(SSID_NAME, SSID_PASS, 6);
   while (WiFi.status() != WL_CONNECTED) {
     delay(250);
     Serial.print(".");
   }
-  Serial.print(" conectado. IP: ");
+  Serial.println();
+  Serial.print("Conectado! IP: ");
   Serial.println(WiFi.localIP());
 }
 
-void conectarBroker() {
-  while (!mqtt.connected()) {
-    Serial.print("Conectando ao broker MQTT... ");
-    if (mqtt.connect(CLIENT_ID, BROKER_USER, BROKER_PASSWORD)) {
-      Serial.println("conectado.");
-      mqtt.subscribe(TOPICO_COMANDO);
-      publicarStatus();   // informa o estado atual a cada (re)conexão
+// Publica o estado atual da bomba (retido: o Node-RED recebe o ultimo estado ao se conectar)
+void publicarStatus() {
+  const char* status = bombaLigada ? "{\"bomba\":1}" : "{\"bomba\":0}";
+  clienteMQTT.publish(TOPICO_STATUS, status, true);
+  Serial.print("Status publicado: ");
+  Serial.println(status);
+}
+
+void acionarBomba(bool ligar) {
+  if (ligar == bombaLigada) return;  // ja esta no estado pedido
+  bombaLigada = ligar;
+  digitalWrite(PIN_RELE, ligar ? HIGH : LOW);
+  digitalWrite(PIN_LED,  ligar ? HIGH : LOW);
+  Serial.println(ligar ? "Bomba LIGADA" : "Bomba DESLIGADA");
+  publicarStatus();
+}
+
+// Recebe {"acao":"ligar"} ou {"acao":"desligar"} no topico de comando
+void aoReceberMensagem(char* topico, byte* payload, unsigned int tamanho) {
+  String mensagem;
+  for (unsigned int i = 0; i < tamanho; i++) {
+    mensagem += (char)payload[i];
+  }
+  Serial.print("Comando recebido: ");
+  Serial.println(mensagem);
+
+  // "desligar" primeiro, porque a palavra contem "ligar"
+  if (mensagem.indexOf("\"desligar\"") >= 0) {
+    acionarBomba(false);
+  } else if (mensagem.indexOf("\"ligar\"") >= 0) {
+    acionarBomba(true);
+  }
+}
+
+void conectarMQTT() {
+  while (!clienteMQTT.connected()) {
+    Serial.println("Conectando-se ao broker MQTT...");
+    if (clienteMQTT.connect(CLIENT_ID)) {
+      Serial.println("Broker MQTT conectado!");
+      clienteMQTT.subscribe(TOPICO_COMANDO);
+      publicarStatus();  // informa o estado atual ao conectar
     } else {
-      Serial.print("falhou (rc=");
-      Serial.print(mqtt.state());
-      Serial.println("). Nova tentativa em 5 s.");
+      Serial.print("Falha, rc=");
+      Serial.print(clienteMQTT.state());
+      Serial.println(". Nova tentativa em 5 segundos.");
       delay(5000);
     }
   }
 }
 
+// ---------- Setup e Loop ----------
 void setup() {
   Serial.begin(115200);
-  pinMode(PINO_RELE, OUTPUT);
-  pinMode(PINO_LED, OUTPUT);
-  digitalWrite(PINO_RELE, LOW);   // começa desligada, por segurança
-  digitalWrite(PINO_LED, LOW);
+  pinMode(PIN_RELE, OUTPUT);
+  pinMode(PIN_LED, OUTPUT);
+  digitalWrite(PIN_RELE, LOW);
+  digitalWrite(PIN_LED, LOW);
 
   conectarWiFi();
-  mqtt.setServer(BROKER_HOST, BROKER_PORT);
-  mqtt.setCallback(aoReceberMensagem);
+  clienteMQTT.setServer(BROKER_URL, BROKER_PORT);
+  clienteMQTT.setCallback(aoReceberMensagem);
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) conectarWiFi();
-  if (!mqtt.connected()) conectarBroker();
-  mqtt.loop();
+  if (!clienteMQTT.connected()) {
+    conectarMQTT();
+  }
+  clienteMQTT.loop();  // recebe os comandos e mantem a conexao ativa
 }

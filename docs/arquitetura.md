@@ -1,6 +1,6 @@
 # Arquitetura
 
-O protótipo roda sem servidores próprios na nuvem: os dispositivos são simulados no Wokwi, o broker MQTT é público e o Node-RED roda no computador da equipe.
+O protótipo roda sem servidores próprios: os dispositivos são simulados no Wokwi, o broker MQTT é público, o Node-RED roda no computador da equipe (em um container Docker) e o banco de dados e os dashboards usam os planos gratuitos do InfluxDB Cloud e do Grafana Cloud.
 
 ## Onde roda cada serviço
 
@@ -8,12 +8,14 @@ O protótipo roda sem servidores próprios na nuvem: os dispositivos são simula
 |---|---|---|
 | Dispositivos A e B | Wokwi (rede Wokwi-GUEST) | saída pelo gateway do Wokwi |
 | Broker MQTT | HiveMQ público | `broker.hivemq.com:1883` |
-| Node-RED | computador da equipe | `http://localhost:1880` |
-| InfluxDB | _a definir_ | _a preencher_ |
-| Grafana | _a definir_ | _a preencher_ |
+| Node-RED | computador da equipe (container Docker `nodered/node-red`) | `http://localhost:1880` |
+| InfluxDB | InfluxDB Cloud Serverless, plano Free (AWS us-east-1) | `https://us-east-1-1.aws.cloud2.influxdata.com`, bucket `smartfarm` |
+| Grafana | Grafana Cloud, plano Free | lê o bucket `smartfarm` com um token só de leitura |
 | OpenWeather e Telegram Bot API | serviços externos | `api.openweathermap.org`, `api.telegram.org` |
 
-> O enunciado do projeto determina que broker, Node-RED, banco de dados e gerador de dashboards não fiquem na mesma máquina, a menos que sejam máquinas virtuais distintas. O broker já é externo (HiveMQ). Para o InfluxDB e o Grafana, as opções que respeitam essa regra sem instalar servidores são o **InfluxDB Cloud** e o **Grafana Cloud**, ambos com plano gratuito.
+> O enunciado do projeto determina que broker, Node-RED, banco de dados e gerador de dashboards não fiquem na mesma máquina, a menos que sejam máquinas virtuais distintas. Com essa distribuição, cada serviço roda em uma infraestrutura diferente: o broker no HiveMQ, o Node-RED no computador da equipe, o banco no InfluxDB Cloud e os dashboards no Grafana Cloud.
+>
+> O plano gratuito do InfluxDB Cloud guarda os dados por até 30 dias, o suficiente para o protótipo.
 
 ## Por que o broker é público
 
