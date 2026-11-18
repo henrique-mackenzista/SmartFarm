@@ -11,6 +11,7 @@ Instale pelo menu **Manage palette** do Node-RED:
 | Paleta | Uso |
 |---|---|
 | `node-red-contrib-influxdb` | nó `influxdb out`, que grava no InfluxDB |
+| `node-red-contrib-telegrambot` | nós `telegram receiver` e `telegram sender`, do menu de consulta do bot ([docs/bot-telegram.md](../docs/bot-telegram.md)) |
 
 Os nós `mqtt in`, `mqtt out`, `http request`, `inject`, `change`, `join`, `function` e `debug` já vêm com o Node-RED.
 
@@ -22,7 +23,9 @@ Os nós `mqtt in`, `mqtt out`, `http request`, `inject`, `change`, `join`, `func
 4. Nos nós `http request`, troque os marcadores pelos valores reais:
    - `OPENWEATHER_API_KEY` na URL do OpenWeather;
    - `TELEGRAM_BOT_TOKEN` na URL do Telegram e `TELEGRAM_CHAT_ID` no corpo da mensagem.
-5. Clique em **Deploy**.
+5. Abra a configuração do bot do Telegram (`telegram bot`), informe o token e mantenha o modo *polling*.
+6. Defina a variável de ambiente `TELEGRAM_CHAT_IDS_AUTORIZADOS` (IDs de chat separados por vírgula) e reinicie o Node-RED.
+7. Clique em **Deploy**.
 
 ## Exportação sem dados sensíveis
 

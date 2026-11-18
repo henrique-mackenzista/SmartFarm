@@ -32,3 +32,4 @@ O broker usa IP elástico para que o endereço não mude quando a instância for
 3. Quando uma regra decide, o Node-RED publica o comando para o Dispositivo B, que aciona o relé e publica o novo estado da bomba.
 4. O Node-RED grava telemetria, estados, consumo, clima e alertas no InfluxDB e envia os alertas pelo Telegram.
 5. O Grafana lê o InfluxDB e mostra os [dashboards](dashboards.md).
+6. Pelo [bot do Telegram](bot-telegram.md), o usuário consulta a situação do campo a qualquer momento; o Node-RED responde com os valores mais recentes.

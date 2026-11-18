@@ -24,7 +24,8 @@ O SmartFarm decide **quando irrigar com base na condição real do solo**:
 - adia a irrigação quando a previsão do tempo indica chuva;
 - protege o reservatório, bloqueando a bomba quando o nível fica crítico;
 - registra o tempo de cada acionamento para estimar o volume de água usado e compará-lo com uma rotina fixa — o indicador de eficiência da meta 6.4;
-- envia alertas pelo Telegram e mostra tudo em dashboards no Grafana.
+- envia alertas pelo Telegram e mostra tudo em dashboards no Grafana;
+- responde a consultas por um [bot no Telegram](docs/bot-telegram.md), com menu de botões: status geral, umidade, nível do reservatório, chuva prevista, estado da bomba e economia de água.
 
 ## Arquitetura
 
@@ -36,7 +37,7 @@ flowchart LR
     B -- "smartfarm/dispB/comando" --> D["Dispositivo B<br/>ESP32 + relé (bomba)"]
     D -- "smartfarm/dispB/status" --> B
     N <-- "HTTPS" --> W["OpenWeather<br/>clima e previsão"]
-    N -- "HTTPS" --> T["Telegram Bot API<br/>alertas"]
+    N <-- "HTTPS" --> T["Telegram Bot API<br/>alertas e menu de consulta"]
     N -- "HTTP + token" --> I[("InfluxDB")]
     I --> G["Grafana<br/>dashboards"]
 ```
@@ -63,6 +64,7 @@ smartfarm/
 │   ├── regras-de-negocio.md       regras R1 a R7 e como validá-las
 │   ├── banco-de-dados.md          o que é gravado no InfluxDB
 │   ├── dashboards.md              dashboards e painéis do Grafana
+│   ├── bot-telegram.md            comandos do bot, segurança e código do Node-RED
 │   └── img/                       diagramas e capturas de tela
 ├── dispositivos/
 │   ├── README.md                  ligações, adaptações e como usar no Wokwi
@@ -92,11 +94,12 @@ Os arquivos marcados como "a adicionar" entram no repositório à medida que o p
 3. **Banco de dados** — crie um bucket `smartfarm` no InfluxDB e um token com permissão de escrita e leitura.
 4. **Node-RED** — em outra instância EC2, instale o Node-RED e as paletas listadas em [`node-red/README.md`](node-red/README.md), importe `node-red/flows.json` e preencha as credenciais a partir de [`.env.example`](.env.example).
 5. **Grafana** — adicione o InfluxDB como fonte de dados e importe os dois arquivos JSON de [`grafana/`](grafana/).
-6. **Teste** — inicie as duas simulações no Wokwi e gire o potenciômetro abaixo de 30%: o Node-RED deve publicar o comando de ligar, o relé do Dispositivo B deve acionar e o acionamento deve aparecer no dashboard. Os demais testes estão em [docs/regras-de-negocio.md](docs/regras-de-negocio.md).
+6. **Bot do Telegram** — crie o bot no @BotFather e configure-o no Node-RED conforme [docs/bot-telegram.md](docs/bot-telegram.md).
+7. **Teste** — inicie as duas simulações no Wokwi e gire o potenciômetro abaixo de 30%: o Node-RED deve publicar o comando de ligar, o relé do Dispositivo B deve acionar e o acionamento deve aparecer no dashboard. Os demais testes estão em [docs/regras-de-negocio.md](docs/regras-de-negocio.md).
 
 ## Dados sensíveis
 
-Chaves de API, tokens e números de telefone **não** são publicados neste repositório. O fluxo do Node-RED é exportado sem credenciais, e os valores necessários estão listados, sem conteúdo real, em [`.env.example`](.env.example).
+Chaves de API, tokens, IDs de chat e números de telefone **não** são publicados neste repositório. O fluxo do Node-RED é exportado sem credenciais, e os valores necessários estão listados, sem conteúdo real, em [`.env.example`](.env.example).
 
 ## Referências
 
