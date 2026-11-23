@@ -69,7 +69,7 @@
         "usetls": false,
         "tls": "",
         "influxdbVersion": "2.0",
-        "url": "http://localhost:8086",
+        "url": "https://us-east-1-1.aws.cloud2.influxdata.com",
         "timeout": "10",
         "rejectUnauthorized": true
     },
@@ -830,7 +830,7 @@
         "database": "database",
         "precisionV18FluxV20": "ms",
         "retentionPolicyV18Flux": "",
-        "org": "smartfarm",
+        "org": "IOT",
         "bucket": "smartfarm",
         "x": 290,
         "y": 100,
