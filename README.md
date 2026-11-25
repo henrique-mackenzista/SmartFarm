@@ -7,8 +7,8 @@ Professor: Wallace Rodrigues de Santana.
 
 **Equipe:** Henrique Storai · Gabriel Athia · Pedro Kihara
 
-> 🎥 **Vídeo de demonstração:** _link do YouTube será adicionado aqui_
-> 🔌 **Simulação no Wokwi:** [Dispositivo A (sensores)](#) · [Dispositivo B (atuador)](#) — _links serão adicionados aqui_
+> 🎥 **Vídeo de demonstração:** https://www.youtube.com/watch?v=qSY8k8FFGFU&feature=youtu.be
+> 🔌 **Simulação no Wokwi:** [https://wokwi.com/projects/481041963496115201](#) · [https://wokwi.com/projects/481041940209331201](#)
 
 ---
 
