@@ -7,7 +7,9 @@ Dois dashboards, descritos em detalhe em [docs/dashboards.md](../docs/dashboards
 | `dashboard-monitoramento.json` | Monitoramento em tempo real |
 | `dashboard-historico-alertas.json` | Histórico e alertas |
 
-> Os arquivos JSON serão adicionados aqui quando os dashboards estiverem montados com os dados reais.
+Os arquivos foram exportados do Grafana Cloud no formato de dashboard v2 (`dashboard.grafana.app/v2`) e todas as consultas usam SQL sobre o bucket `smartfarm`. Eles não contêm tokens nem senhas.
+
+> Os painéis referenciam a fonte de dados pelo identificador que ela tem no Grafana de origem. Depois de importar, se algum painel mostrar erro de fonte de dados, abra o painel em **Edit** e selecione a sua fonte InfluxDB, ou substitua no JSON o valor `dg564ekasyqrka` pelo identificador (UID) da sua fonte antes de importar.
 
 ## Como importar
 

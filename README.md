@@ -78,15 +78,14 @@ smartfarm/
 │   ├── flows.json                 fluxo completo do Node-RED, sem credenciais
 │   └── README.md                  instalação local, configuração e importação
 ├── grafana/
-│   ├── dashboard-monitoramento.json        (a adicionar)
-│   ├── dashboard-historico-alertas.json    (a adicionar)
+│   ├── dashboard-monitoramento.json        dashboard de monitoramento em tempo real
+│   ├── dashboard-historico-alertas.json    dashboard de histórico e alertas
 │   └── README.md                  como importar e configurar a fonte de dados
 ├── .env.example                   variáveis secretas necessárias (sem valores reais)
 ├── .gitignore
 └── LICENSE
 ```
 
-Os arquivos marcados como "a adicionar" entram no repositório à medida que o protótipo for concluído.
 
 ## Como reproduzir o projeto
 
