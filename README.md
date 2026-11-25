@@ -8,7 +8,7 @@ Professor: Wallace Rodrigues de Santana.
 **Equipe:** Henrique Storai · Gabriel Athia · Pedro Kihara
 
 > 🎥 **Vídeo de demonstração:** https://www.youtube.com/watch?v=qSY8k8FFGFU&feature=youtu.be
-> 🔌 **Simulação no Wokwi:** [https://wokwi.com/projects/481041963496115201](#) · [https://wokwi.com/projects/481041940209331201](#)
+> 🔌 **Simulação no Wokwi:** https://wokwi.com/projects/481041963496115201 · https://wokwi.com/projects/481041940209331201
 
 ---
 
