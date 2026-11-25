@@ -15,6 +15,7 @@ Cada registro é gravado com o horário e uma tag que identifica a origem.
 | `telemetria` | `dispositivo=dispA` | `umidade_solo`, `umidade_ar`, `temperatura`, `nivel` | a cada 5 s |
 | `bomba` | `dispositivo=dispB`, `motivo` | `estado` (1 = ligada, 0 = desligada) | a cada mudança |
 | `irrigacao` | `dispositivo=dispB` | `duracao_s`, `litros` | quando a bomba desliga |
+| `bloqueio` | `motivo` (`nenhum`, `chuva`, `reservatorio`, `tempo_maximo`, `falha`) | `codigo` (0 = sem bloqueio, 1 = chuva, 2 = reservatório, 3 = tempo máximo, 4 = falha de comunicação) | a cada mudança do motivo de bloqueio |
 | `clima` | `fonte=openweather` | `temperatura`, `prob_chuva` | a cada 5 min |
 | `alertas` | `tipo` | `mensagem`, `enviado` (1 = enviado ao Telegram) | quando um alerta é gerado |
 | `comandos` | `comando` | `chat` (ID anonimizado), `respondido` (1 = sim) | quando o bot recebe um comando |

@@ -85,7 +85,7 @@ Salve e reinicie o Node-RED (Ctrl+C no terminal e `node-red` de novo).
    - **URL** do InfluxDB Cloud (ex.: `https://us-east-1-1.aws.cloud2.influxdata.com`);
    - **Token** com permissão de leitura e escrita no bucket.
 
-   No próprio nó `InfluxDB`, preencha a **Organization** com o Organization ID (aparece na URL do console do InfluxDB Cloud, depois de `/orgs/`), o **Bucket** `smartfarm` e a **Time Precision** em milissegundos.
+   No próprio nó `InfluxDB`, troque `SUA_ORGANIZACAO` na **Organization** pelo Organization ID (aparece na URL do console do InfluxDB Cloud, depois de `/orgs/`), o **Bucket** `smartfarm` e a **Time Precision** em milissegundos.
 3. Clique em **Deploy**.
 
 O broker já vem configurado com `broker.hivemq.com`, porta 1883, e o client ID `mack10308763-nodered`.
