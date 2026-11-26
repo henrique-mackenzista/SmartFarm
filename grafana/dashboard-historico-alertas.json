@@ -2,21 +2,7 @@
   "apiVersion": "dashboard.grafana.app/v2",
   "kind": "Dashboard",
   "metadata": {
-    "name": "smartfarm-historico",
-    "namespace": "stacks-1911702",
-    "uid": "04a52854-35c9-4029-924f-5a3e092c3a9c",
-    "resourceVersion": "2124900704664457216",
-    "generation": 9,
-    "creationTimestamp": "2026-11-23T13:36:44Z",
-    "labels": {
-      "grafana.app/deprecatedInternalID": "3664273330798592"
-    },
-    "annotations": {
-      "grafana.app/createdBy": "user:fg3lwo3nfyj28f",
-      "grafana.app/saved-from-ui": "Grafana Cloud",
-      "grafana.app/updatedBy": "user:fg3lwo3nfyj28f",
-      "grafana.app/updatedTimestamp": "2026-11-23T16:19:41Z"
-    }
+    "name": "smartfarm-historico"
   },
   "spec": {
     "annotations": [
@@ -171,7 +157,9 @@
                     "thresholdsStyle": {
                       "mode": "dashed"
                     }
-                  }
+                  },
+                  "min": 0,
+                  "max": 100
                 },
                 "overrides": []
               }
@@ -281,7 +269,7 @@
                 "legend": {
                   "displayMode": "list",
                   "placement": "bottom",
-                  "showLegend": true
+                  "showLegend": false
                 },
                 "mergeValues": true,
                 "rowHeight": 0.9,
@@ -299,16 +287,13 @@
                     "steps": [
                       {
                         "value": 0,
-                        "color": "green"
-                      },
-                      {
-                        "value": 80,
-                        "color": "red"
+                        "color": "text"
                       }
                     ]
                   },
                   "color": {
-                    "mode": "thresholds"
+                    "mode": "fixed",
+                    "fixedColor": "text"
                   },
                   "custom": {
                     "axisPlacement": "auto",
@@ -323,7 +308,79 @@
                     "spanNulls": false
                   }
                 },
-                "overrides": []
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Bomba"
+                    },
+                    "properties": [
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "Desligada",
+                                "color": "#8e8e8e",
+                                "index": 0
+                              },
+                              "1": {
+                                "text": "Ligada",
+                                "color": "green",
+                                "index": 1
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Bloqueio"
+                    },
+                    "properties": [
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "Sem bloqueio",
+                                "color": "#8e8e8e",
+                                "index": 0
+                              },
+                              "1": {
+                                "text": "Chuva prevista",
+                                "color": "blue",
+                                "index": 1
+                              },
+                              "2": {
+                                "text": "Reservatório crítico",
+                                "color": "red",
+                                "index": 2
+                              },
+                              "3": {
+                                "text": "Tempo máximo",
+                                "color": "orange",
+                                "index": 3
+                              },
+                              "4": {
+                                "text": "Sem telemetria",
+                                "color": "purple",
+                                "index": 4
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
               }
             }
           }
@@ -468,7 +525,7 @@
         "spec": {
           "id": 6,
           "title": "Economia de água (7 dias)",
-          "description": "Comparação com a rotina fixa (60 L/dia × 7 = 420 L)",
+          "description": "Comparação com uma rotina fixa de 60 L por dia, contando só os dias em que o sistema esteve em operação",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -492,7 +549,7 @@
                         "legendFormat": "__auto",
                         "range": true,
                         "rawQuery": true,
-                        "rawSql": "SELECT 100 * (1 - COALESCE(SUM(litros), 0) / 420.0) AS \"Economia\", 420 - COALESCE(SUM(litros), 0) AS \"Economizados\", COALESCE(SUM(litros), 0) AS \"Usados\" FROM \"irrigacao\" WHERE time >= now() - INTERVAL '7 days'",
+                        "rawSql": "SELECT 100 * (1 - COALESCE(SUM(litros), 0) / (60.0 * (SELECT COUNT(DISTINCT date_trunc('day', time - INTERVAL '3 hours')) FROM \"telemetria\" WHERE time >= now() - INTERVAL '7 days'))) AS \"Economia\", 60.0 * (SELECT COUNT(DISTINCT date_trunc('day', time - INTERVAL '3 hours')) FROM \"telemetria\" WHERE time >= now() - INTERVAL '7 days') - COALESCE(SUM(litros), 0) AS \"Economizados\", COALESCE(SUM(litros), 0) AS \"Usados\" FROM \"irrigacao\" WHERE time >= now() - INTERVAL '7 days'",
                         "sql": {
                           "columns": [
                             {
@@ -930,7 +987,9 @@
                     "thresholdsStyle": {
                       "mode": "dashed"
                     }
-                  }
+                  },
+                  "min": 0,
+                  "max": 100
                 },
                 "overrides": []
               }
