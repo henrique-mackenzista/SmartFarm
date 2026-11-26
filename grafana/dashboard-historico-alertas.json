@@ -524,8 +524,8 @@
         "kind": "Panel",
         "spec": {
           "id": 6,
-          "title": "Economia de água (7 dias)",
-          "description": "Comparação com uma rotina fixa de 60 L por dia, contando só os dias em que o sistema esteve em operação",
+          "title": "Economia de água × meta de 30% (7 dias)",
+          "description": "Compara a água usada com uma rotina fixa de 60 L por dia, contando só os dias em operação. A meta do projeto é economizar pelo menos 30%: verde quando atingida, vermelho quando não.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -549,7 +549,7 @@
                         "legendFormat": "__auto",
                         "range": true,
                         "rawQuery": true,
-                        "rawSql": "SELECT 100 * (1 - COALESCE(SUM(litros), 0) / (60.0 * (SELECT COUNT(DISTINCT date_trunc('day', time - INTERVAL '3 hours')) FROM \"telemetria\" WHERE time >= now() - INTERVAL '7 days'))) AS \"Economia\", 60.0 * (SELECT COUNT(DISTINCT date_trunc('day', time - INTERVAL '3 hours')) FROM \"telemetria\" WHERE time >= now() - INTERVAL '7 days') - COALESCE(SUM(litros), 0) AS \"Economizados\", COALESCE(SUM(litros), 0) AS \"Usados\" FROM \"irrigacao\" WHERE time >= now() - INTERVAL '7 days'",
+                        "rawSql": "SELECT 100 * (1 - COALESCE(SUM(litros), 0) / (60.0 * (SELECT COUNT(DISTINCT date_trunc('day', time - INTERVAL '3 hours')) FROM \"telemetria\" WHERE time >= now() - INTERVAL '7 days'))) AS \"Economia\", CASE WHEN 100 * (1 - COALESCE(SUM(litros), 0) / (60.0 * (SELECT COUNT(DISTINCT date_trunc('day', time - INTERVAL '3 hours')) FROM \"telemetria\" WHERE time >= now() - INTERVAL '7 days'))) >= 30 THEN 1 ELSE 0 END AS \"Meta de 30%\", 60.0 * (SELECT COUNT(DISTINCT date_trunc('day', time - INTERVAL '3 hours')) FROM \"telemetria\" WHERE time >= now() - INTERVAL '7 days') - COALESCE(SUM(litros), 0) AS \"Economizados\", COALESCE(SUM(litros), 0) AS \"Usados\" FROM \"irrigacao\" WHERE time >= now() - INTERVAL '7 days'",
                         "sql": {
                           "columns": [
                             {
@@ -663,6 +663,62 @@
                       {
                         "id": "unit",
                         "value": "percent"
+                      },
+                      {
+                        "id": "thresholds",
+                        "value": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "value": null,
+                              "color": "red"
+                            },
+                            {
+                              "value": 30,
+                              "color": "green"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "thresholds"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Meta de 30%"
+                    },
+                    "properties": [
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "Não atingida",
+                                "color": "red",
+                                "index": 0
+                              },
+                              "1": {
+                                "text": "Atingida",
+                                "color": "green",
+                                "index": 1
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "thresholds"
+                        }
                       }
                     ]
                   },

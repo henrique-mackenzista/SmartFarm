@@ -27,9 +27,17 @@ O SmartFarm decide **quando irrigar com base na condição real do solo**:
 - envia alertas pelo Telegram e mostra tudo em dashboards no Grafana;
 - responde a consultas por um [bot no Telegram](docs/bot-telegram.md), com menu de botões: status geral, umidade, nível do reservatório, chuva prevista, estado da bomba e economia de água.
 
-> 📄 **Artigo:** [SmartFarm-Artigo-N1.pdf](docs/SmartFarm-Artigo-N1.pdf) ([versão .docx](docs/SmartFarm-Artigo-N1.docx))
+> 📄 **Artigo completo (N2):** [SmartFarm-Artigo-N2.pdf](docs/SmartFarm-Artigo-N2.pdf) ([versão .docx](docs/SmartFarm-Artigo-N2.docx)) · primeira entrega: [N1](docs/SmartFarm-Artigo-N1.pdf)
+
+## Meta 6.4 da ONU e o indicador do projeto
+
+A meta 6.4 da Agenda 2030 pede o aumento substancial da eficiência do uso da água. Ela é acompanhada pelos indicadores 6.4.1 (eficiência do uso da água) e 6.4.2 (nível de estresse hídrico). O SmartFarm traz essa ideia para a escala de uma propriedade com um indicador próprio: **a economia de água em relação a uma rotina fixa** de duas irrigações diárias de 15 minutos (60 L/dia), com a **meta de economizar pelo menos 30%**. O dashboard de histórico mostra essa economia em verde quando a meta é atingida e em vermelho quando não é.
+
+Nos testes de 25 e 26/11/2026, o sistema usou **46 L** contra **120 L** da rotina fixa: **61% de economia**, acima da meta.
 
 ## Arquitetura
+
+![Topologia lógica do SmartFarm](docs/img/topologia.png)
 
 ```mermaid
 flowchart LR
@@ -44,7 +52,31 @@ flowchart LR
     I --> G["Grafana<br/>dashboards"]
 ```
 
-Todos os tópicos começam com `mack10308763/smartfarm/` ([detalhes](docs/topicos-mqtt.md)).
+Os endereços (FQDN e IP) de cada elemento estão na Seção 2.9 do [artigo](docs/SmartFarm-Artigo-N2.pdf) e em [docs/arquitetura.md](docs/arquitetura.md).
+
+### Estrutura de tópicos MQTT
+
+Todos os tópicos seguem o padrão `mack10308763/smartfarm/<dispositivo>/<mensagem>`. O prefixo `mack10308763` (RA do responsável) evita conflito com outros usuários do broker público.
+
+```
+mack10308763/
+└── smartfarm/
+    ├── dispA/
+    │   └── telemetria   ← Dispositivo A publica a cada 5 s
+    └── dispB/
+        ├── comando      ← Node-RED publica
+        └── status       ← Dispositivo B publica (mensagem retida)
+```
+
+| Tópico | Quem publica | Quem assina | Exemplo |
+|---|---|---|---|
+| `.../dispA/telemetria` | Dispositivo A | Node-RED | `{"umidade_solo":17,"temperatura":23.0,"umidade_ar":60.0,"nivel":67}` |
+| `.../dispB/comando` | Node-RED | Dispositivo B | `{"acao":"ligar"}` ou `{"acao":"desligar"}` |
+| `.../dispB/status` | Dispositivo B | Node-RED | `{"bomba":1}` ou `{"bomba":0}` |
+
+![Tópicos no MQTT Explorer](docs/img/mqtt-explorer.png)
+
+Mais detalhes em [docs/topicos-mqtt.md](docs/topicos-mqtt.md).
 
 | Bloco | Tecnologia | Onde roda |
 |---|---|---|
@@ -54,6 +86,53 @@ Todos os tópicos começam com `mack10308763/smartfarm/` ([detalhes](docs/topico
 | Banco de dados | InfluxDB (séries temporais) | InfluxDB Cloud, plano gratuito |
 | Dashboards | Grafana | Grafana Cloud, plano gratuito |
 | APIs externas | OpenWeather, Telegram Bot API | serviços de terceiros |
+
+## Dispositivos no Wokwi
+
+| Dispositivo A (sensores) | Dispositivo B (atuador) |
+|---|---|
+| ![Dispositivo A](docs/img/wokwi-dispositivo-a.png) | ![Dispositivo B](docs/img/wokwi-dispositivo-b.png) |
+
+## Node-RED
+
+![Fluxo de regras no Node-RED](docs/img/node-red-fluxo.png)
+
+Fluxo completo em [`node-red/flows.json`](node-red/flows.json); regras R1 a R7 em [docs/regras-de-negocio.md](docs/regras-de-negocio.md).
+
+## Dashboards
+
+**Monitoramento em tempo real**, atualizado a cada 5 s:
+
+![Dashboard de monitoramento](docs/img/dashboard-monitoramento.png)
+
+**Histórico e alertas**, com a economia de água em relação à meta de 30%:
+
+![Dashboard de histórico, parte 1](docs/img/dashboard-historico-1.png)
+![Dashboard de histórico, parte 2](docs/img/dashboard-historico-2.png)
+
+O que cada painel mostra e por que ele existe: [docs/dashboards.md](docs/dashboards.md). Arquivos para importar: [`grafana/`](grafana/).
+
+## Banco de dados e bot no Telegram
+
+![Ciclos de irrigação gravados no InfluxDB](docs/img/influxdb-irrigacao.png)
+
+![Bot no Telegram](docs/img/bot-telegram.png)
+
+(a) consultas ao bot; (b) alertas de reservatório crítico e de tempo máximo; (c) notificações de irrigação adiada e de falha no sensor. Detalhes em [docs/banco-de-dados.md](docs/banco-de-dados.md) e [docs/bot-telegram.md](docs/bot-telegram.md).
+
+## Documentação
+
+| Documento | Conteúdo |
+|---|---|
+| [Artigo N2 (PDF)](docs/SmartFarm-Artigo-N2.pdf) · [.docx](docs/SmartFarm-Artigo-N2.docx) | artigo completo |
+| [Artigo N1 (PDF)](docs/SmartFarm-Artigo-N1.pdf) · [.docx](docs/SmartFarm-Artigo-N1.docx) | primeira entrega, corrigida |
+| [arquitetura.md](docs/arquitetura.md) | onde roda cada serviço e fluxo dos dados |
+| [topicos-mqtt.md](docs/topicos-mqtt.md) | tópicos e formato das mensagens |
+| [regras-de-negocio.md](docs/regras-de-negocio.md) | regras R1 a R7 e como testá-las |
+| [banco-de-dados.md](docs/banco-de-dados.md) | o que é gravado no InfluxDB |
+| [dashboards.md](docs/dashboards.md) | painéis do Grafana e análise gerencial |
+| [bot-telegram.md](docs/bot-telegram.md) | comandos do bot e segurança |
+| [img/](docs/img/) | diagramas e capturas de tela |
 
 ## Estrutura do repositório
 
@@ -67,8 +146,10 @@ smartfarm/
 │   ├── banco-de-dados.md          o que é gravado no InfluxDB
 │   ├── dashboards.md              dashboards e painéis do Grafana
 │   ├── bot-telegram.md            comandos do bot, segurança e configuração
-│   ├── SmartFarm-Artigo-N1.docx   artigo do projeto (primeira entrega, corrigida)
-│   ├── SmartFarm-Artigo-N1.pdf    o mesmo artigo em PDF, para leitura no navegador
+│   ├── SmartFarm-Artigo-N2.docx   artigo completo (segunda entrega)
+│   ├── SmartFarm-Artigo-N2.pdf    o mesmo artigo em PDF
+│   ├── SmartFarm-Artigo-N1.docx   primeira entrega, corrigida
+│   ├── SmartFarm-Artigo-N1.pdf    o mesmo artigo em PDF
 │   └── img/                       diagramas e capturas de tela
 ├── dispositivos/
 │   ├── README.md                  ligações, adaptações e como usar no Wokwi

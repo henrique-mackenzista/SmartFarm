@@ -29,3 +29,17 @@ Os ESP32 simulados no Wokwi rodam na nuvem do Wokwi e acessam a internet pela re
 4. O Node-RED grava telemetria, estados, consumo, clima, alertas e comandos no InfluxDB e envia os alertas pelo Telegram.
 5. O Grafana lê o InfluxDB e mostra os [dashboards](dashboards.md).
 6. Pelo [bot do Telegram](bot-telegram.md), o usuário consulta a situação do campo a qualquer momento; o Node-RED responde com os valores mais recentes.
+
+## Endereços (FQDN e IP)
+
+Consultados por DNS em 26/11/2026. Os IPs dos serviços em nuvem podem mudar, pois eles usam balanceamento de carga.
+
+| Elemento | FQDN | IP | Onde roda |
+|---|---|---|---|
+| Dispositivos A e B | wokwi.com (simulador) | 10.10.0.2 na rede Wokwi-GUEST; saída por 172.67.75.230 | servidores do Wokwi |
+| Broker MQTT | broker.hivemq.com | 18.197.15.210 | nuvem da HiveMQ |
+| Node-RED | localhost, porta 1880 | 192.168.0.11 (rede local) | contêiner Docker no computador da equipe |
+| API de clima | api.openweathermap.org | 169.197.141.10 | nuvem do OpenWeather |
+| API do bot | api.telegram.org | 149.154.166.110 | nuvem do Telegram |
+| Banco de dados | us-east-1-1.aws.cloud2.influxdata.com | 34.196.233.7 | InfluxDB Cloud (AWS us-east-1) |
+| Dashboards | radiantermine1510.grafana.net | 104.18.13.97 | Grafana Cloud |
