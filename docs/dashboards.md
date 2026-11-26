@@ -8,7 +8,7 @@ A meta 6.4 da Agenda 2030 pede mais eficiência no uso da água. No SmartFarm, e
 
 A meta do projeto é **economizar pelo menos 30%**. No painel "Economia de água × meta de 30%", o percentual fica verde e aparece "Atingida" quando a economia é de 30% ou mais; fica vermelho e aparece "Não atingida" quando é menor.
 
-Resultado dos testes (25 e 26/11/2026): 46 L usados contra 120 L da rotina fixa, ou seja, **61% de economia**, acima da meta.
+Resultado dos testes (25 e 26/11/2026): 57 L usados contra 120 L da rotina fixa, ou seja, **53% de economia**, acima da meta.
 
 ## Dashboard 1 – Monitoramento em tempo real
 

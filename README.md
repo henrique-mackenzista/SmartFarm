@@ -33,7 +33,7 @@ O SmartFarm decide **quando irrigar com base na condição real do solo**:
 
 A meta 6.4 da Agenda 2030 pede o aumento substancial da eficiência do uso da água. Ela é acompanhada pelos indicadores 6.4.1 (eficiência do uso da água) e 6.4.2 (nível de estresse hídrico). O SmartFarm traz essa ideia para a escala de uma propriedade com um indicador próprio: **a economia de água em relação a uma rotina fixa** de duas irrigações diárias de 15 minutos (60 L/dia), com a **meta de economizar pelo menos 30%**. O dashboard de histórico mostra essa economia em verde quando a meta é atingida e em vermelho quando não é.
 
-Nos testes de 25 e 26/11/2026, o sistema usou **46 L** contra **120 L** da rotina fixa: **61% de economia**, acima da meta.
+Nos testes de 25 e 26/11/2026, o sistema usou **57 L** contra **120 L** da rotina fixa: **53% de economia**, acima da meta.
 
 ## Arquitetura
 
